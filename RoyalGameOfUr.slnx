@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RoyalGameOfUr.Console/RoyalGameOfUr.Console.csproj" />
+    <Project Path="src/RoyalGameOfUr.Engine/RoyalGameOfUr.Engine.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RoyalGameOfUr.Engine.Tests/RoyalGameOfUr.Engine.Tests.csproj" />
+  </Folder>
+</Solution>
