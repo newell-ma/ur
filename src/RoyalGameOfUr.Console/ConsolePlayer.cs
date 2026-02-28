@@ -2,7 +2,7 @@ using RoyalGameOfUr.Engine;
 
 namespace RoyalGameOfUr.Console;
 
-public sealed class ConsolePlayer : IPlayer
+public sealed class ConsolePlayer : ISkipCapablePlayer
 {
     public string Name { get; }
 
@@ -34,10 +34,26 @@ public sealed class ConsolePlayer : IPlayer
         }
     }
 
+    public Task<bool> ShouldSkipAsync(GameState state, IReadOnlyList<Move> validMoves, int roll)
+    {
+        System.Console.WriteLine("  Only backward moves available. Skip turn? (y/n)");
+        while (true)
+        {
+            System.Console.Write("  > ");
+            string? input = System.Console.ReadLine()?.Trim().ToLowerInvariant();
+            if (input == "y" || input == "yes")
+                return Task.FromResult(true);
+            if (input == "n" || input == "no")
+                return Task.FromResult(false);
+            System.Console.WriteLine("  Please enter y or n.");
+        }
+    }
+
     private static string FormatMove(Move move, GameRules rules)
     {
         string from = move.From == -1 ? "START" : $"pos {move.From}";
         string to = move.To == rules.PathLength ? "BEAR OFF" : $"pos {move.To}";
-        return $"{from} -> {to}";
+        string direction = move.To < move.From ? " (backward)" : "";
+        return $"{from} -> {to}{direction}";
     }
 }

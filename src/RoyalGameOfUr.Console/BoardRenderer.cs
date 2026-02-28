@@ -4,19 +4,6 @@ namespace RoyalGameOfUr.Console;
 
 public static class BoardRenderer
 {
-    /// <summary>
-    /// Renders the Royal Game of Ur board in a 3-row layout matching the
-    /// physical H-shaped board (4-column left block, 2-column bridge, 2-column right block).
-    ///
-    /// The Finkel board layout (path length 15, shared lane 5-12):
-    ///
-    ///   P1:  [3] [2] [1] [0]                   [14*][13]
-    ///        [4*][5]  [6] [7] [8*][9] [10] [11] [12]
-    ///   P2:  [3] [2] [1] [0]                   [14*][13]
-    ///
-    /// Rosettes shown with * marker.
-    /// P1 pieces shown as 1, P2 pieces shown as 2.
-    /// </summary>
     private static int _boardTop = -1;
     private const int BoardLines = 8;
     private const int MessageAreaLines = 10;
@@ -42,9 +29,12 @@ public static class BoardRenderer
         }
 
         System.Console.WriteLine();
-        System.Console.WriteLine(RenderTopRow(state, Player.One, rules));
-        System.Console.WriteLine(RenderMiddleRow(state, rules));
-        System.Console.WriteLine(RenderTopRow(state, Player.Two, rules));
+
+        if (rules.PathLength == 16)
+            RenderMastersBoard(state, rules);
+        else
+            RenderBellBoard(state, rules);
+
         System.Console.WriteLine();
         System.Console.WriteLine($"  P1 ({PlayerSymbol(Player.One)}): {state.PiecesAtStart(Player.One)} at start, {state.PiecesBorneOff(Player.One)} borne off");
         System.Console.WriteLine($"  P2 ({PlayerSymbol(Player.Two)}): {state.PiecesAtStart(Player.Two)} at start, {state.PiecesBorneOff(Player.Two)} borne off");
@@ -52,46 +42,116 @@ public static class BoardRenderer
 
         if (_interactive)
         {
-            // Clear stale messages from the previous turn
             int width = System.Console.BufferWidth;
             string blank = new string(' ', width);
             for (int i = 0; i < MessageAreaLines; i++)
                 System.Console.WriteLine(blank);
 
-            // Position cursor right after the board for new messages
             System.Console.SetCursorPosition(0, _boardTop + BoardLines);
         }
     }
 
-    private static string RenderTopRow(GameState state, Player player, GameRules rules)
+    #region Bell Path Rendering
+
+    private static void RenderBellBoard(GameState state, GameRules rules)
     {
-        // Private lane: 4 cells (positions 0-3), matching the physical left block
-        // Exit: 2 cells (positions 14, 13), right-aligned above last 2 middle cells
+        System.Console.WriteLine(RenderBellTopRow(state, Player.One, rules));
+        System.Console.WriteLine(RenderBellMiddleRow(state, rules));
+        System.Console.WriteLine(RenderBellTopRow(state, Player.Two, rules));
+    }
+
+    private static string RenderBellTopRow(GameState state, Player player, GameRules rules)
+    {
         var entry = new string[4];
         for (int i = 0; i < 4; i++)
             entry[i] = CellContent(state, player, 3 - i, rules);
 
         string exit = CellContent(state, player, 14, rules) + " " + CellContent(state, player, 13, rules);
 
-        // Gap: total top row width must equal middle row width (9 cells = 35 chars)
-        // 4 entry cells = 15 chars, 2 exit cells = 7 chars, gap = 35 - 15 - 7 = 13
         string gap = new string(' ', 13);
-
         char symbol = PlayerSymbol(player);
         return $"  {symbol}: {string.Join(" ", entry)}{gap}{exit}";
     }
 
-    private static string RenderMiddleRow(GameState state, GameRules rules)
+    private static string RenderBellMiddleRow(GameState state, GameRules rules)
     {
-        // Middle row: 9 cells (positions 4-12), left-aligned with private rows
-        // Position 4 is private to each player but sits on the shared row physically
         var cells = new List<string>();
         for (int i = 4; i <= 12; i++)
         {
-            cells.Add(SharedCellContent(state, i, rules));
+            cells.Add(SharedCellContent(state, i, i, rules));
         }
         return $"     {string.Join(" ", cells)}";
     }
+
+    #endregion
+
+    #region Masters Path Rendering
+
+    private static void RenderMastersBoard(GameState state, GameRules rules)
+    {
+        System.Console.WriteLine(RenderMastersPlayerRow(state, Player.One, rules));
+        System.Console.WriteLine(RenderMastersMiddleRow(state, rules));
+        System.Console.WriteLine(RenderMastersPlayerRow(state, Player.Two, rules));
+    }
+
+    private static string RenderMastersPlayerRow(GameState state, Player player, GameRules rules)
+    {
+        // Private lane: positions 0-3 (right to left: [3] [2] [1] [0])
+        var entry = new string[4];
+        for (int i = 0; i < 4; i++)
+            entry[i] = CellContent(state, player, 3 - i, rules);
+
+        // Exit zone: columns 7 and 8 of the physical board
+        // Col 7: player's pos 15 and opponent's pos 11 share the physical tile
+        // Col 8: player's pos 14 and opponent's pos 12 share the physical tile
+        string col7 = CrossZoneCellContent(state, player, 15, 11, rules);
+        string col8 = CrossZoneCellContent(state, player, 14, 12, rules);
+
+        // Gap: 4 entry cells = 15 chars, 2 exit cells = 7 chars
+        // Middle has 8 cells = 31 chars, total = 31
+        // gap = 31 - 15 - 7 = 9
+        string gap = new string(' ', 9);
+        char symbol = PlayerSymbol(player);
+        return $"  {symbol}: {string.Join(" ", entry)}{gap}{col7} {col8}";
+    }
+
+    private static string RenderMastersMiddleRow(GameState state, GameRules rules)
+    {
+        // Positions 4-10 (shared middle) + position 13 (shared, tile (2,8))
+        var cells = new List<string>();
+        for (int i = 4; i <= 10; i++)
+        {
+            cells.Add(SharedCellContent(state, i, i, rules));
+        }
+        cells.Add(SharedCellContent(state, 13, 13, rules));
+        return $"     {string.Join(" ", cells)}";
+    }
+
+    /// <summary>
+    /// Renders a cross-zone cell where one player's position and the opponent's
+    /// position share the same physical tile.
+    /// </summary>
+    private static string CrossZoneCellContent(GameState state, Player player,
+        int playerPos, int opponentPos, GameRules rules)
+    {
+        bool isRosette = rules.IsRosette(playerPos);
+        char marker = isRosette ? '*' : '.';
+
+        bool hasPlayerPiece = state.IsOccupiedBy(player, playerPos);
+        bool hasOpponentPiece = state.IsOccupiedBy(player.Opponent(), opponentPos);
+
+        if (hasPlayerPiece && hasOpponentPiece)
+            return $"[!]"; // conflict (shouldn't happen with captures, but show it)
+        if (hasPlayerPiece)
+            return $"[{PlayerSymbol(player)}]";
+        if (hasOpponentPiece)
+            return $"[{PlayerSymbol(player.Opponent())}]";
+        return $"[{marker}]";
+    }
+
+    #endregion
+
+    #region Shared Cell Helpers
 
     private static string CellContent(GameState state, Player player, int position, GameRules rules)
     {
@@ -100,37 +160,63 @@ public static class BoardRenderer
         char marker = isRosette ? '*' : '.';
 
         if (occupied)
+        {
+            int count = state.PieceCountAt(player, position);
+            if (count > 1)
+                return $"[{count}]"; // show stack count
             return $"[{PlayerSymbol(player)}]";
+        }
         return $"[{marker}]";
     }
 
-    private static string SharedCellContent(GameState state, int position, GameRules rules)
+    private static string SharedCellContent(GameState state, int p1Pos, int p2Pos, GameRules rules)
     {
-        bool isRosette = rules.IsRosette(position);
+        bool isRosette = rules.IsRosette(p1Pos);
         char marker = isRosette ? '*' : '.';
 
-        bool p1 = state.IsOccupiedBy(Player.One, position);
-        bool p2 = state.IsOccupiedBy(Player.Two, position);
+        bool p1 = state.IsOccupiedBy(Player.One, p1Pos);
+        bool p2 = state.IsOccupiedBy(Player.Two, p2Pos);
 
-        if (p1) return $"[{PlayerSymbol(Player.One)}]";
-        if (p2) return $"[{PlayerSymbol(Player.Two)}]";
+        if (p1)
+        {
+            int count = state.PieceCountAt(Player.One, p1Pos);
+            if (count > 1)
+                return $"[{count}]";
+            return $"[{PlayerSymbol(Player.One)}]";
+        }
+        if (p2)
+        {
+            int count = state.PieceCountAt(Player.Two, p2Pos);
+            if (count > 1)
+                return $"[{count}]";
+            return $"[{PlayerSymbol(Player.Two)}]";
+        }
         return $"[{marker}]";
     }
 
+    #endregion
+
+    #region Index Rendering
+
     public static void RenderIndexes(GameRules rules)
+    {
+        if (rules.PathLength == 16)
+            RenderMastersIndexes(rules);
+        else
+            RenderBellIndexes(rules);
+    }
+
+    private static void RenderBellIndexes(GameRules rules)
     {
         static string Idx(int pos, GameRules r) =>
             r.IsRosette(pos) ? $"[{pos,2}*]" : $"[{pos,2} ]";
 
-        // Private row (positions 0-3) + gap + exit (14, 13)
         string entry = string.Join("", new[] { 3, 2, 1, 0 }.Select(i => Idx(i, rules)));
         string exit = Idx(14, rules) + Idx(13, rules);
-        int middleWidth = 9 * 5; // 9 cells × 5 chars each
+        int middleWidth = 9 * 5;
         int gap = middleWidth - entry.Length - exit.Length;
 
         string privateRow = $"     {entry}{new string(' ', gap)}{exit}";
-
-        // Middle row (positions 4-12)
         string middle = string.Join("", Enumerable.Range(4, 9).Select(i => Idx(i, rules)));
 
         System.Console.WriteLine();
@@ -139,6 +225,33 @@ public static class BoardRenderer
         System.Console.WriteLine($"  2:{privateRow[4..]}");
         System.Console.WriteLine();
     }
+
+    private static void RenderMastersIndexes(GameRules rules)
+    {
+        static string Idx(int pos, GameRules r) =>
+            r.IsRosette(pos) ? $"[{pos,2}*]" : $"[{pos,2} ]";
+
+        string entry = string.Join("", new[] { 3, 2, 1, 0 }.Select(i => Idx(i, rules)));
+        string exit = Idx(15, rules) + Idx(14, rules);
+        // Middle: 8 cells (4-10 + 13)
+        int middleWidth = 8 * 5;
+        int gap = middleWidth - entry.Length - exit.Length;
+        if (gap < 1) gap = 1;
+
+        string privateRow = $"     {entry}{new string(' ', gap)}{exit}";
+        string middle = string.Join("",
+            Enumerable.Range(4, 7).Select(i => Idx(i, rules))
+                .Append(Idx(13, rules)));
+
+        System.Console.WriteLine();
+        System.Console.WriteLine($"  1:{privateRow[4..]}");
+        System.Console.WriteLine($"     {middle}");
+        System.Console.WriteLine($"  2:{privateRow[4..]}");
+        System.Console.WriteLine();
+        System.Console.WriteLine("  Cross-zone: P1 pos 11/12 on P2's row, P2 pos 11/12 on P1's row");
+    }
+
+    #endregion
 
     private static char PlayerSymbol(Player player) => player == Player.One ? '1' : '2';
 }

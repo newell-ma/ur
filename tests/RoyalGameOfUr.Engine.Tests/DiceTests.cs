@@ -54,4 +54,36 @@ public class DiceTests
 
         Assert.Throws<InvalidOperationException>(() => dice.Roll());
     }
+
+    [Test]
+    public async Task ThreeDice_ReturnsValueInRange0To3()
+    {
+        var dice = new Dice(42, 3);
+        var results = new HashSet<int>();
+
+        for (int i = 0; i < 1000; i++)
+        {
+            int roll = dice.Roll();
+            await Assert.That(roll).IsGreaterThanOrEqualTo(0);
+            await Assert.That(roll).IsLessThanOrEqualTo(3);
+            results.Add(roll);
+        }
+
+        // With 1000 rolls we should see all possible values
+        await Assert.That(results).Contains(0);
+        await Assert.That(results).Contains(3);
+        await Assert.That(results.Contains(4)).IsFalse();
+    }
+
+    [Test]
+    public async Task ThreeDice_Deterministic()
+    {
+        var dice1 = new Dice(99, 3);
+        var dice2 = new Dice(99, 3);
+
+        for (int i = 0; i < 100; i++)
+        {
+            await Assert.That(dice1.Roll()).IsEqualTo(dice2.Roll());
+        }
+    }
 }

@@ -4,12 +4,34 @@ using RoyalGameOfUr.Console;
 bool demo = args.Contains("--demo");
 bool showIndexes = args.Contains("--indexes");
 
+// Parse --rules=<name> flag
+string rulesName = "finkel";
+foreach (var arg in args)
+{
+    if (arg.StartsWith("--rules=", StringComparison.OrdinalIgnoreCase))
+    {
+        rulesName = arg["--rules=".Length..].ToLowerInvariant();
+    }
+}
+
+GameRules rules = rulesName switch
+{
+    "finkel" => GameRules.Finkel,
+    "simple" => GameRules.Simple,
+    "masters" => GameRules.Masters,
+    "blitz" => GameRules.Blitz,
+    "tournament" => GameRules.Tournament,
+    _ => throw new ArgumentException(
+        $"Unknown ruleset: '{rulesName}'. Valid options: finkel, simple, masters, blitz, tournament")
+};
+
 Console.WriteLine("=== The Royal Game of Ur ===");
+Console.WriteLine($"  Ruleset: {rules.Name}");
 Console.WriteLine();
 
 if (showIndexes)
 {
-    BoardRenderer.RenderIndexes(GameRules.Finkel);
+    BoardRenderer.RenderIndexes(rules);
     return;
 }
 
@@ -39,8 +61,7 @@ else
     player2 = new ConsolePlayer(p2Name);
 }
 
-var rules = GameRules.Finkel;
-var dice = new Dice();
+var dice = new Dice(null, rules.DiceCount);
 var game = new Game(dice, rules);
 
 var runner = new GameRunner(game, player1, player2);
@@ -53,7 +74,10 @@ runner.OnStateChanged += state =>
 runner.OnDiceRolled += (player, roll) =>
 {
     string name = player == Player.One ? player1.Name : player2.Name;
-    Console.WriteLine($"{name} rolled: {roll}");
+    if (rules.ZeroRollValue.HasValue && roll == 0)
+        Console.WriteLine($"{name} rolled: {roll} (moves {rules.ZeroRollValue.Value})");
+    else
+        Console.WriteLine($"{name} rolled: {roll}");
 };
 
 runner.OnMoveMade += (move, result) =>

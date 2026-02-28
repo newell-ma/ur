@@ -1,6 +1,6 @@
 namespace RoyalGameOfUr.Engine;
 
-public sealed class GreedyAiPlayer : IPlayer
+public sealed class GreedyAiPlayer : ISkipCapablePlayer
 {
     public string Name { get; }
     public TimeSpan ThinkingDelay { get; }
@@ -32,21 +32,44 @@ public sealed class GreedyAiPlayer : IPlayer
         return best;
     }
 
+    public Task<bool> ShouldSkipAsync(GameState state, IReadOnlyList<Move> validMoves, int roll)
+    {
+        // AI always skips when only backward moves available
+        return Task.FromResult(true);
+    }
+
     private static int ScoreMove(Move move, GameState state)
     {
         var rules = state.Rules;
+
+        // Backward moves — penalize
+        if (move.To < move.From)
+            return -100 + move.To;
 
         // Bear off — highest priority
         if (move.To == rules.PathLength)
             return 1000;
 
-        // Land on rosette — extra turn is very valuable
+        // Land on rosette
         if (rules.IsRosette(move.To))
-            return 800;
+        {
+            int rosetteScore = 800;
+            if (!rules.RosetteExtraRoll) rosetteScore = 400;
+            if (!rules.SafeRosettes) rosetteScore -= 100;
+            return rosetteScore;
+        }
 
-        // Capture opponent — send them back to start
-        if (rules.IsSharedLane(move.To) && state.IsOccupiedBy(move.Player.Opponent(), move.To))
-            return 600;
+        // Capture opponent — use CaptureMap
+        if (rules.IsSharedLane(move.To))
+        {
+            int opponentPos = rules.GetOpponentCapturePosition(move.To);
+            if (state.IsOccupiedBy(move.Player.Opponent(), opponentPos))
+            {
+                int captureScore = 600;
+                if (rules.CaptureExtraRoll) captureScore = 750;
+                return captureScore;
+            }
+        }
 
         // Advance furthest piece — prefer pieces closer to bear-off
         if (move.From >= 0)

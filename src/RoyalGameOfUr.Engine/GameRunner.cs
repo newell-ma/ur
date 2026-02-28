@@ -40,8 +40,32 @@ public sealed class GameRunner
                 continue;
             }
 
-            var currentPlayer = GetPlayer(_game.State.CurrentPlayer);
-            var chosenMove = await currentPlayer.ChooseMoveAsync(_game.State, validMoves, roll);
+            // Check for voluntary skip (only backward moves available)
+            if (_game.State.Rules.AllowVoluntarySkip)
+            {
+                bool hasForwardMoves = validMoves.Any(m => m.To > m.From);
+                if (!hasForwardMoves)
+                {
+                    var currentPlayer = GetPlayer(_game.State.CurrentPlayer);
+                    bool shouldSkip;
+                    if (currentPlayer is ISkipCapablePlayer skipCapable)
+                        shouldSkip = await skipCapable.ShouldSkipAsync(
+                            _game.State, validMoves, roll);
+                    else
+                        shouldSkip = true; // default: auto-skip
+
+                    if (shouldSkip)
+                    {
+                        _game.ForfeitTurn();
+                        OnTurnForfeited?.Invoke(_game.State.CurrentPlayer.Opponent());
+                        OnStateChanged?.Invoke(_game.State);
+                        continue;
+                    }
+                }
+            }
+
+            var playerImpl = GetPlayer(_game.State.CurrentPlayer);
+            var chosenMove = await playerImpl.ChooseMoveAsync(_game.State, validMoves, roll);
             var result = _game.ExecuteMove(chosenMove);
 
             OnMoveMade?.Invoke(chosenMove, result);
