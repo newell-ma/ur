@@ -1,0 +1,32 @@
+@* N tetrahedral dice with tumble animation, total display *@
+
+<div class="dice-container">
+    @if (IndividualDice is not null)
+    {
+        @for (int i = 0; i < IndividualDice.Length; i++)
+        {
+            var dieValue = IndividualDice[i];
+            var isMarked = dieValue == 1;
+
+            <svg class="die @(IsRolling ? "rolling" : "")" viewBox="0 0 44 50">
+                @* Tetrahedral die body (triangle) *@
+                <polygon points="22,4 4,44 40,44" class="die-body" />
+                @* Tip marker — gold if scored (1), clay if not (0) *@
+                <circle cx="22" cy="14" r="5" class="die-tip @(isMarked ? "marked" : "")" />
+            </svg>
+        }
+
+        <span class="dice-total">@Total</span>
+    }
+</div>
+
+@code {
+    [Parameter] public int[]? IndividualDice { get; set; }
+    [Parameter] public int Total { get; set; }
+    [Parameter] public int EffectiveTotal { get; set; }
+    [Parameter] public bool IsRolling { get; set; }
+
+    private string DisplayTotal => EffectiveTotal != Total && EffectiveTotal > 0
+        ? $"{Total} ({EffectiveTotal})"
+        : Total.ToString();
+}

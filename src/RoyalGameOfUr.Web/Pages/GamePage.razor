@@ -1,0 +1,105 @@
+@page "/"
+@inject GameService GameSvc
+@implements IDisposable
+
+<h1>The Royal Game of Ur</h1>
+
+@* Mode selector *@
+<div class="mode-bar">
+    <select @bind="_selectedRules">
+        <option value="Finkel">Finkel</option>
+        <option value="Simple">Simple</option>
+        <option value="Masters">Masters</option>
+        <option value="Blitz">Blitz</option>
+        <option value="Tournament">Tournament</option>
+    </select>
+
+    <select @bind="_selectedMode">
+        <option value="HumanVsAI">Human vs AI</option>
+        <option value="HotSeat">Hot Seat (2P)</option>
+        <option value="AIDemo">AI vs AI Demo</option>
+    </select>
+
+    <button class="btn" @onclick="StartNewGame">New Game</button>
+    <a href="/online" class="btn">Play Online</a>
+</div>
+
+@* Game info *@
+<GameInfoPanel State="GameSvc.State"
+               Player1Name="@GameSvc.Player1Name"
+               Player2Name="@GameSvc.Player2Name"
+               Player1Type="GameSvc.Player1Type"
+               Player2Type="GameSvc.Player2Type"
+               StatusMessage="@GameSvc.StatusMessage" />
+
+@* Dice *@
+<DiceView IndividualDice="GameSvc.IndividualDice"
+          Total="GameSvc.LastRollDisplay"
+          EffectiveTotal="GameSvc.EffectiveRollDisplay"
+          IsRolling="_diceRolling" />
+
+@* Skip decision UI (Tournament voluntary skip) *@
+@if (GameSvc.IsAwaitingSkip)
+{
+    <div class="skip-prompt">
+        <span>Only backward moves available. Skip turn?</span>
+        <button class="btn" @onclick="() => GameSvc.SubmitSkipDecision(true)">Skip</button>
+        <button class="btn" @onclick="() => GameSvc.SubmitSkipDecision(false)">Move Backward</button>
+    </div>
+}
+
+@* Board *@
+@if (_mapper is not null)
+{
+    <BoardView State="GameSvc.State"
+               Rules="GameSvc.Rules"
+               Mapper="_mapper"
+               ValidMoves="GameSvc.ValidMoves"
+               OnMoveSelected="HandleMoveSelected" />
+}
+
+@* Game over overlay *@
+@if (GameSvc.Winner is not null)
+{
+    <GameOverOverlay Winner="GameSvc.Winner.Value"
+                     WinnerName="@(GameSvc.Winner == Player.One ? GameSvc.Player1Name : GameSvc.Player2Name)"
+                     OnPlayAgain="StartNewGame" />
+}
+
+<style>
+    .mode-bar {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin-bottom: 0.75rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .skip-prompt {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin: 0.5rem 0;
+        color: var(--sand);
+    }
+
+    .board-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .side-areas {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+    }
+
+    .borne-off-row {
+        display: flex;
+        gap: 2rem;
+        justify-content: center;
+    }
+</style>

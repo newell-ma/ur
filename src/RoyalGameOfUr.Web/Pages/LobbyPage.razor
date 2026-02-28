@@ -1,0 +1,248 @@
+@page "/online"
+@inject OnlineGameService Online
+@inject NavigationManager Nav
+@implements IDisposable
+
+<h1>The Royal Game of Ur</h1>
+<h2>Online Multiplayer</h2>
+
+<div class="lobby">
+    @if (!_inRoom)
+    {
+        <div class="lobby-form">
+            <label>Your Name</label>
+            <input type="text" @bind="_playerName" maxlength="20" placeholder="Enter your name" />
+        </div>
+
+        <div class="lobby-actions">
+            <div class="lobby-section">
+                <h3>Create a Room</h3>
+                <select @bind="_selectedRules">
+                    <option value="Finkel">Finkel</option>
+                    <option value="Simple">Simple</option>
+                    <option value="Masters">Masters</option>
+                    <option value="Blitz">Blitz</option>
+                    <option value="Tournament">Tournament</option>
+                </select>
+                <button class="btn btn-primary" @onclick="CreateRoom" disabled="@(string.IsNullOrWhiteSpace(_playerName))">
+                    Create Room
+                </button>
+            </div>
+
+            <div class="lobby-divider">OR</div>
+
+            <div class="lobby-section">
+                <h3>Join a Room</h3>
+                <input type="text" @bind="_joinCode" maxlength="4" placeholder="Room code"
+                       style="text-transform: uppercase; width: 6em; text-align: center; font-size: 1.2rem;" />
+                <button class="btn btn-primary" @onclick="JoinRoom"
+                        disabled="@(string.IsNullOrWhiteSpace(_playerName) || string.IsNullOrWhiteSpace(_joinCode))">
+                    Join Room
+                </button>
+            </div>
+        </div>
+    }
+    else if (Online.IsHost && !Online.OpponentJoined)
+    {
+        <div class="waiting-room">
+            <p>Room created! Share this code with your opponent:</p>
+            <div class="room-code">@Online.RoomCode</div>
+            <p class="waiting-text">Waiting for opponent to join...</p>
+            <p class="rules-label">Rules: @Online.RulesName</p>
+        </div>
+    }
+    else if (Online.IsHost && Online.OpponentJoined)
+    {
+        <div class="waiting-room">
+            <p>Room Code: <strong>@Online.RoomCode</strong></p>
+            <p><span class="text-player2">@Online.OpponentName</span> has joined!</p>
+            <p class="rules-label">Rules: @Online.RulesName</p>
+            <button class="btn btn-primary" @onclick="StartGame">Start Game</button>
+        </div>
+    }
+    else
+    {
+        <div class="waiting-room">
+            <p>Joined room <strong>@Online.RoomCode</strong></p>
+            <p>Host: <span class="text-player1">@Online.OpponentName</span></p>
+            <p class="rules-label">Rules: @Online.RulesName</p>
+            <p class="waiting-text">Waiting for host to start the game...</p>
+        </div>
+    }
+
+    @if (_error is not null)
+    {
+        <p class="error-text">@_error</p>
+    }
+
+    <div class="lobby-nav">
+        <a href="/" class="btn">Back to Local Play</a>
+    </div>
+</div>
+
+<style>
+    .lobby {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.25rem;
+        max-width: 500px;
+        margin: 0 auto;
+    }
+
+    .lobby h2 {
+        margin-bottom: 0.5rem;
+    }
+
+    .lobby-form {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+    }
+
+    .lobby-form input {
+        padding: 0.5rem;
+        border: 1px solid var(--gold);
+        border-radius: 4px;
+        background: var(--obsidian);
+        color: var(--ivory);
+        font-size: 1rem;
+        text-align: center;
+        width: 14em;
+    }
+
+    .lobby-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .lobby-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .lobby-section h3 {
+        color: var(--sand);
+        font-size: 0.95rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .lobby-divider {
+        color: var(--gold);
+        font-weight: 600;
+        font-size: 0.9rem;
+        letter-spacing: 0.1em;
+    }
+
+    .waiting-room {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .room-code {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--gold);
+        letter-spacing: 0.3em;
+        background: rgba(200, 168, 78, 0.1);
+        border: 2px solid var(--gold);
+        border-radius: 8px;
+        padding: 0.5rem 1.5rem;
+        font-family: monospace;
+    }
+
+    .waiting-text {
+        color: var(--sand);
+        font-style: italic;
+    }
+
+    .rules-label {
+        color: var(--sand);
+        font-size: 0.9rem;
+    }
+
+    .error-text {
+        color: var(--terracotta);
+        font-weight: 600;
+    }
+
+    .lobby-nav {
+        margin-top: 1rem;
+    }
+</style>
+
+@code {
+    private string _playerName = "";
+    private string _selectedRules = "Finkel";
+    private string _joinCode = "";
+    private bool _inRoom;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Online.OnRoomUpdated += HandleRoomUpdated;
+        Online.OnGameStarting += HandleGameStarting;
+        Online.Reset();
+        await Online.ConnectAsync();
+    }
+
+    private async Task CreateRoom()
+    {
+        _error = null;
+        var (success, error) = await Online.CreateRoomAsync(_selectedRules, _playerName.Trim());
+        if (success)
+        {
+            _inRoom = true;
+        }
+        else
+        {
+            _error = error;
+        }
+    }
+
+    private async Task JoinRoom()
+    {
+        _error = null;
+        var (success, error) = await Online.JoinRoomAsync(_joinCode.Trim().ToUpperInvariant(), _playerName.Trim());
+        if (success)
+        {
+            _inRoom = true;
+        }
+        else
+        {
+            _error = error;
+        }
+    }
+
+    private async Task StartGame()
+    {
+        await Online.StartGameAsync();
+    }
+
+    private async Task HandleRoomUpdated()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleGameStarting()
+    {
+        await InvokeAsync(() => Nav.NavigateTo("/online/play"));
+    }
+
+    public void Dispose()
+    {
+        Online.OnRoomUpdated -= HandleRoomUpdated;
+        Online.OnGameStarting -= HandleGameStarting;
+    }
+}

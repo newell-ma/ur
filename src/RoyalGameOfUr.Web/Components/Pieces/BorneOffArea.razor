@@ -1,0 +1,20 @@
+@* Borne-off count display *@
+
+@if (State is not null)
+{
+    var borneOff = State.PiecesBorneOff(Player);
+    var total = Rules.PiecesPerPlayer;
+    var playerClass = Player == Player.One ? "text-player1" : "text-player2";
+
+    <div class="borne-off-area">
+        <span class="@playerClass" style="font-weight: 600; font-size: 0.9rem;">
+            @(Player == Player.One ? "P1" : "P2") Home: @borneOff / @total
+        </span>
+    </div>
+}
+
+@code {
+    [Parameter] public Player Player { get; set; }
+    [Parameter] public GameState? State { get; set; }
+    [Parameter] public GameRules Rules { get; set; } = GameRules.Finkel;
+}

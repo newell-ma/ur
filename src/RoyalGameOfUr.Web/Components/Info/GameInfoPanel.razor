@@ -1,0 +1,98 @@
+@* Player names, scores, status messages *@
+
+<div class="game-info-panel">
+    <div class="player-info-row">
+        <div class="player-info @(IsPlayer1Turn ? "active-player" : "")">
+            <span class="player-name text-player1">@Player1Name</span>
+            @if (Player1Type == PlayerType.Computer)
+            {
+                <span class="player-type">(AI)</span>
+            }
+        </div>
+
+        <div class="turn-indicator">
+            @if (State is not null && !State.IsGameOver)
+            {
+                <span class="@(IsPlayer1Turn ? "text-player1" : "text-player2")">
+                    @(IsPlayer1Turn ? Player1Name : Player2Name)'s turn
+                </span>
+            }
+        </div>
+
+        <div class="player-info @(!IsPlayer1Turn ? "active-player" : "")">
+            <span class="player-name text-player2">@Player2Name</span>
+            @if (Player2Type == PlayerType.Computer)
+            {
+                <span class="player-type">(AI)</span>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(StatusMessage))
+    {
+        <div class="status-message">@StatusMessage</div>
+    }
+</div>
+
+<style>
+    .game-info-panel {
+        width: 100%;
+        max-width: 800px;
+        text-align: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .player-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .player-info {
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        border: 2px solid transparent;
+        transition: border-color 0.3s;
+    }
+
+    .player-info.active-player {
+        border-color: var(--gold);
+    }
+
+    .player-name {
+        font-weight: 700;
+        font-size: 1.05rem;
+    }
+
+    .player-type {
+        color: var(--ivory);
+        opacity: 0.6;
+        font-size: 0.85rem;
+        margin-left: 0.25rem;
+    }
+
+    .turn-indicator {
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+
+    .status-message {
+        color: var(--sand);
+        font-size: 0.95rem;
+        margin-top: 0.25rem;
+        min-height: 1.4em;
+    }
+</style>
+
+@code {
+    [Parameter] public GameState? State { get; set; }
+    [Parameter] public string Player1Name { get; set; } = "Player 1";
+    [Parameter] public string Player2Name { get; set; } = "Player 2";
+    [Parameter] public PlayerType Player1Type { get; set; }
+    [Parameter] public PlayerType Player2Type { get; set; }
+    [Parameter] public string? StatusMessage { get; set; }
+
+    private bool IsPlayer1Turn => State?.CurrentPlayer == Player.One;
+}

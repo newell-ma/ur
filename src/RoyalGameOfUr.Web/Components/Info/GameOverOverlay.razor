@@ -1,0 +1,49 @@
+@* Modal win screen + Play Again *@
+
+<div class="game-over-backdrop" @onclick="HandleBackdropClick">
+    <div class="game-over-content" @onclick:stopPropagation="true">
+        <h2 class="game-over-title">Game Over</h2>
+        <p class="game-over-winner @(Winner == Player.One ? "text-player1" : "text-player2")">
+            @WinnerName wins!
+        </p>
+        <button class="btn btn-primary" @onclick="OnPlayAgain">Play Again</button>
+    </div>
+</div>
+
+<style>
+    .game-over-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+
+    .game-over-content {
+        background: var(--obsidian);
+        border: 2px solid var(--gold);
+        border-radius: 12px;
+        padding: 2rem 3rem;
+        text-align: center;
+    }
+
+    .game-over-title {
+        margin-bottom: 0.5rem;
+    }
+
+    .game-over-winner {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+    }
+</style>
+
+@code {
+    [Parameter] public Player Winner { get; set; }
+    [Parameter] public string WinnerName { get; set; } = "";
+    [Parameter] public EventCallback OnPlayAgain { get; set; }
+
+    private void HandleBackdropClick() { /* Allow click-through to dismiss if desired */ }
+}

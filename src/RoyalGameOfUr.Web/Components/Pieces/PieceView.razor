@@ -1,0 +1,34 @@
+@* SVG circle piece with CSS transition on transform *@
+
+<g class="piece @(IsClickable ? "clickable" : "") @(IsSelected ? "selected" : "") @CssAnimation"
+   transform="translate(@CenterX.ToString("F1"), @CenterY.ToString("F1"))"
+   @onclick="HandleClick">
+
+    <circle cx="0" cy="0" r="@Radius"
+            class="@(Player == Player.One ? "piece-circle-p1" : "piece-circle-p2")" />
+
+    @if (ShowStackCount && StackCount > 1)
+    {
+        @((MarkupString)$"<text x=\"0\" y=\"0\" class=\"stack-count\">{StackCount}</text>")
+    }
+</g>
+
+@code {
+    [Parameter] public double CenterX { get; set; }
+    [Parameter] public double CenterY { get; set; }
+    [Parameter] public Player Player { get; set; }
+    [Parameter] public bool IsClickable { get; set; }
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public int StackCount { get; set; } = 1;
+    [Parameter] public bool ShowStackCount { get; set; }
+    [Parameter] public string CssAnimation { get; set; } = "";
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private const double Radius = 28;
+
+    private async Task HandleClick()
+    {
+        if (IsClickable && OnClick.HasDelegate)
+            await OnClick.InvokeAsync();
+    }
+}

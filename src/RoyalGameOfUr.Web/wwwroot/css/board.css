@@ -1,0 +1,43 @@
+/* === Board SVG Styling === */
+.board-svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.board-cell {
+    fill: var(--cell-bg);
+    stroke: var(--cell-border);
+    stroke-width: 2;
+}
+
+.board-cell.rosette {
+    fill: #f0e0b0;
+}
+
+/* Rosette star decoration */
+.rosette-star {
+    fill: var(--rosette-gold);
+    opacity: 0.7;
+}
+
+/* Valid move destination highlight */
+.valid-destination {
+    stroke: var(--gold);
+    stroke-width: 3;
+    stroke-dasharray: 6 3;
+    fill: #dfc88a;
+    cursor: pointer;
+    animation: pulse-highlight 1.2s ease-in-out infinite;
+}
+
+.valid-destination:hover {
+    fill: #d4b870;
+}
+
+/* Board frame */
+.board-frame {
+    fill: none;
+    stroke: var(--board-border);
+    stroke-width: 3;
+}

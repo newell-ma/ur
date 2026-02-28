@@ -1,0 +1,196 @@
+@page "/online/play"
+@inject OnlineGameService Online
+@inject NavigationManager Nav
+@implements IDisposable
+
+<h1>The Royal Game of Ur</h1>
+
+<div class="online-info-bar">
+    <span class="room-label">Room: <strong>@Online.RoomCode</strong></span>
+    <span class="player-label">
+        You are
+        @if (Online.LocalPlayer == Player.One)
+        {
+            <span class="text-player1">@Online.Player1Name</span>
+        }
+        else
+        {
+            <span class="text-player2">@Online.Player2Name</span>
+        }
+    </span>
+</div>
+
+@* Game info *@
+<GameInfoPanel State="Online.State"
+               Player1Name="@Online.Player1Name"
+               Player2Name="@Online.Player2Name"
+               Player1Type="PlayerType.Human"
+               Player2Type="PlayerType.Human"
+               StatusMessage="@Online.StatusMessage" />
+
+@* Dice *@
+<DiceView IndividualDice="Online.IndividualDice"
+          Total="Online.LastRollDisplay"
+          EffectiveTotal="Online.EffectiveRollDisplay"
+          IsRolling="_diceRolling" />
+
+@* Turn indicator for waiting *@
+@if (Online.IsRunning && !Online.IsMyTurn && !Online.IsAwaitingSkip)
+{
+    <p class="waiting-turn">Waiting for opponent...</p>
+}
+
+@* Skip decision UI (Tournament voluntary skip) *@
+@if (Online.IsAwaitingSkip && Online.IsMyTurn)
+{
+    <div class="skip-prompt">
+        <span>Only backward moves available. Skip turn?</span>
+        <button class="btn" @onclick="() => SubmitSkip(true)">Skip</button>
+        <button class="btn" @onclick="() => SubmitSkip(false)">Move Backward</button>
+    </div>
+}
+
+@* Board *@
+@if (_mapper is not null)
+{
+    <BoardView State="Online.State"
+               Rules="Online.Rules"
+               Mapper="_mapper"
+               ValidMoves="@(Online.IsMyTurn ? Online.ValidMoves : [])"
+               OnMoveSelected="HandleMoveSelected" />
+}
+
+@* Game over overlay *@
+@if (Online.Winner is not null)
+{
+    <GameOverOverlay Winner="Online.Winner.Value"
+                     WinnerName="@(Online.Winner == Player.One ? Online.Player1Name : Online.Player2Name)"
+                     OnPlayAgain="BackToLobby" />
+}
+
+@if (Online.ErrorMessage is not null)
+{
+    <p class="error-text">@Online.ErrorMessage</p>
+}
+
+<style>
+    .online-info-bar {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--sand);
+    }
+
+    .room-label strong {
+        color: var(--gold);
+        letter-spacing: 0.1em;
+    }
+
+    .waiting-turn {
+        color: var(--sand);
+        font-style: italic;
+        text-align: center;
+        margin: 0.25rem 0;
+    }
+
+    .skip-prompt {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        margin: 0.5rem 0;
+        color: var(--sand);
+    }
+
+    .error-text {
+        color: var(--terracotta);
+        font-weight: 600;
+        text-align: center;
+    }
+</style>
+
+@code {
+    private BoardCoordinateMapper? _mapper;
+    private bool _diceRolling;
+
+    protected override void OnInitialized()
+    {
+        if (Online.Rules is null || !Online.IsRunning)
+        {
+            Nav.NavigateTo("/online");
+            return;
+        }
+
+        _mapper = new BoardCoordinateMapper(Online.Rules);
+        SubscribeEvents();
+    }
+
+    private void SubscribeEvents()
+    {
+        Online.OnStateChanged += HandleStateChanged;
+        Online.OnDiceRolledEvent += HandleDiceRolled;
+        Online.OnMoveRequested += HandleMoveRequested;
+        Online.OnSkipRequested += HandleSkipRequested;
+        Online.OnGameOverEvent += HandleGameOver;
+    }
+
+    private void UnsubscribeEvents()
+    {
+        Online.OnStateChanged -= HandleStateChanged;
+        Online.OnDiceRolledEvent -= HandleDiceRolled;
+        Online.OnMoveRequested -= HandleMoveRequested;
+        Online.OnSkipRequested -= HandleSkipRequested;
+        Online.OnGameOverEvent -= HandleGameOver;
+    }
+
+    private async Task HandleStateChanged()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleDiceRolled()
+    {
+        _diceRolling = true;
+        await InvokeAsync(StateHasChanged);
+        await Task.Delay(900);
+        _diceRolling = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleMoveRequested()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleSkipRequested()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task HandleGameOver()
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleMoveSelected(Move move)
+    {
+        await Online.SubmitMoveAsync(move);
+    }
+
+    private async Task SubmitSkip(bool skip)
+    {
+        await Online.SubmitSkipDecisionAsync(skip);
+    }
+
+    private void BackToLobby()
+    {
+        Nav.NavigateTo("/online");
+    }
+
+    public void Dispose()
+    {
+        UnsubscribeEvents();
+    }
+}

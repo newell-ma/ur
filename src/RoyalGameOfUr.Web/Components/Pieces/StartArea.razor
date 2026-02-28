@@ -1,0 +1,37 @@
+@* Off-board reserve pieces, clickable when entering from start is valid *@
+
+@if (State is not null)
+{
+    var atStart = State.PiecesAtStart(Player);
+    var canEnter = ValidMoves.Any(m => m.Player == Player && m.From == -1);
+    var playerClass = Player == Player.One ? "text-player1" : "text-player2";
+
+    <div class="start-area">
+        <span class="@playerClass" style="font-weight: 600; font-size: 0.9rem; min-width: 80px;">
+            @(Player == Player.One ? "P1" : "P2") Start:
+        </span>
+        <svg width="@(atStart * 30 + 10)" height="36" class="start-pieces-svg">
+            @for (int i = 0; i < atStart; i++)
+            {
+                var idx = i;
+                <circle cx="@(15 + idx * 30)" cy="18" r="13"
+                        class="start-piece @(Player == Player.One ? "piece-circle-p1" : "piece-circle-p2") @(canEnter ? "clickable" : "")"
+                        @onclick="() => HandleClick()" />
+            }
+        </svg>
+    </div>
+}
+
+@code {
+    [Parameter] public Player Player { get; set; }
+    [Parameter] public GameState? State { get; set; }
+    [Parameter] public GameRules Rules { get; set; } = GameRules.Finkel;
+    [Parameter] public IReadOnlyList<Move> ValidMoves { get; set; } = [];
+    [Parameter] public EventCallback<Player> OnPieceClicked { get; set; }
+
+    private async Task HandleClick()
+    {
+        if (OnPieceClicked.HasDelegate)
+            await OnPieceClicked.InvokeAsync(Player);
+    }
+}

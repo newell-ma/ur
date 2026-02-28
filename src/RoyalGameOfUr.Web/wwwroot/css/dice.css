@@ -1,0 +1,53 @@
+/* === Dice Styling === */
+.dice-container {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+}
+
+.die {
+    width: 44px;
+    height: 50px;
+}
+
+.die-body {
+    fill: #d4c4a0;
+    stroke: #8b7355;
+    stroke-width: 1.5;
+}
+
+.die-tip {
+    fill: #d4c4a0;
+    stroke: #8b7355;
+    stroke-width: 1;
+}
+
+.die-tip.marked {
+    fill: var(--gold);
+    stroke: #a08030;
+}
+
+.die.rolling {
+    animation: die-tumble 0.8s ease-out;
+}
+
+.die.rolling:nth-child(2) { animation-delay: 0.05s; }
+.die.rolling:nth-child(3) { animation-delay: 0.1s; }
+.die.rolling:nth-child(4) { animation-delay: 0.15s; }
+
+.dice-total {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 2rem;
+    text-align: center;
+}
+
+@keyframes die-tumble {
+    0% { transform: translateY(-20px) rotate(-180deg); opacity: 0; }
+    30% { opacity: 1; }
+    50% { transform: translateY(4px) rotate(15deg); }
+    70% { transform: translateY(-2px) rotate(-5deg); }
+    100% { transform: translateY(0) rotate(0deg); }
+}

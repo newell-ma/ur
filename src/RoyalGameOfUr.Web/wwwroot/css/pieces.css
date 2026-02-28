@@ -1,0 +1,87 @@
+/* === Piece Styling === */
+.piece {
+    transition: transform 0.4s ease-out;
+    cursor: default;
+}
+
+.piece-circle-p1 {
+    fill: var(--player1-color);
+    stroke: #a04030;
+    stroke-width: 2;
+}
+
+.piece-circle-p2 {
+    fill: var(--player2-color);
+    stroke: #1a4a7a;
+    stroke-width: 2;
+}
+
+.piece.clickable {
+    cursor: pointer;
+    filter: drop-shadow(0 0 6px var(--gold));
+}
+
+.piece.clickable:hover {
+    filter: drop-shadow(0 0 10px var(--gold)) drop-shadow(0 0 4px var(--gold));
+}
+
+.piece.selected .piece-circle-p1,
+.piece.selected .piece-circle-p2 {
+    stroke: var(--gold);
+    stroke-width: 3;
+}
+
+/* Capture fade */
+.piece.captured {
+    animation: capture-fade 0.3s ease-out forwards;
+}
+
+/* Rosette landing glow */
+.piece.rosette-land {
+    animation: rosette-land 0.6s ease-out;
+}
+
+/* Stack count badge */
+.stack-count {
+    fill: var(--ivory);
+    font-size: 14px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+}
+
+/* === Start / Borne-Off Areas === */
+.start-area, .borne-off-area {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.start-piece {
+    cursor: default;
+}
+
+.start-piece.clickable {
+    cursor: pointer;
+    filter: drop-shadow(0 0 6px var(--gold));
+}
+
+.start-piece.clickable:hover {
+    filter: drop-shadow(0 0 10px var(--gold));
+}
+
+.area-label {
+    fill: var(--ivory);
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.7;
+}
+
+.area-count {
+    fill: var(--ivory);
+    font-size: 16px;
+    font-weight: 700;
+    text-anchor: middle;
+    dominant-baseline: central;
+}

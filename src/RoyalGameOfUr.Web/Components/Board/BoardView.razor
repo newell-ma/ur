@@ -1,0 +1,170 @@
+@* SVG root: cells layer + pieces layer + start/borne-off areas *@
+
+<div class="board-wrapper">
+    @* Start areas above/below board *@
+    <div class="side-areas">
+        <StartArea Player="Player.One" State="State" Rules="Rules"
+                   ValidMoves="ValidMoves" OnPieceClicked="HandleStartPieceClick" />
+    </div>
+
+    <svg class="board-svg"
+         viewBox="0 0 @Mapper.SvgWidth @Mapper.SvgHeight"
+         xmlns="http://www.w3.org/2000/svg">
+
+        @* Cell layer *@
+        @foreach (var cell in Mapper.Cells)
+        {
+            var (cx, cy) = Mapper.GetCellTopLeft(cell.Col, cell.Row);
+            <CellView X="cx" Y="cy"
+                      IsRosette="cell.IsRosette"
+                      IsValidDestination="IsCellValidDestination(cell)"
+                      OnClick="@(() => HandleCellClick(cell))" />
+        }
+
+        @* Pieces layer *@
+        @if (State is not null)
+        {
+            @foreach (var player in new[] { Player.One, Player.Two })
+            {
+                var pieces = State.GetPieces(player).ToArray();
+                var positionCounts = new Dictionary<int, int>();
+
+                foreach (var piece in pieces)
+                {
+                    if (piece.Position < 0 || piece.Position >= Rules.PathLength)
+                        continue;
+
+                    positionCounts.TryGetValue(piece.Position, out int countSoFar);
+                    positionCounts[piece.Position] = countSoFar + 1;
+
+                    var (px, py) = Mapper.GetPieceCenterWithOffset(player, piece.Position, countSoFar);
+
+                    // Cross-zone offset: nudge pieces when two players share a physical cell
+                    if (IsCrossZonePosition(player, piece.Position))
+                    {
+                        px += player == Player.One ? -10 : 10;
+                    }
+
+                    bool isClickable = IsPieceClickable(player, piece);
+                    bool isSelected = _selectedPieceKey == (player, piece.Id);
+
+                    <PieceView CenterX="px" CenterY="py"
+                               Player="player"
+                               IsClickable="isClickable"
+                               IsSelected="isSelected"
+                               StackCount="@(Rules.AllowStacking ? State.PieceCountAt(player, piece.Position) : 1)"
+                               ShowStackCount="@(Rules.AllowStacking && countSoFar == 0 && State.PieceCountAt(player, piece.Position) > 1)"
+                               OnClick="@(() => HandlePieceClick(player, piece))" />
+                }
+            }
+        }
+    </svg>
+
+    <div class="side-areas">
+        <StartArea Player="Player.Two" State="State" Rules="Rules"
+                   ValidMoves="ValidMoves" OnPieceClicked="HandleStartPieceClick" />
+    </div>
+
+    @* Borne off areas *@
+    <div class="borne-off-row">
+        <BorneOffArea Player="Player.One" State="State" Rules="Rules" />
+        <BorneOffArea Player="Player.Two" State="State" Rules="Rules" />
+    </div>
+</div>
+
+@code {
+    [Parameter] public GameState? State { get; set; }
+    [Parameter] public GameRules Rules { get; set; } = GameRules.Finkel;
+    [Parameter] public BoardCoordinateMapper Mapper { get; set; } = default!;
+    [Parameter] public IReadOnlyList<Move> ValidMoves { get; set; } = [];
+    [Parameter] public EventCallback<Move> OnMoveSelected { get; set; }
+
+    private (Player Player, int Id)? _selectedPieceKey;
+
+    private bool IsCellValidDestination(BoardCell cell)
+    {
+        if (ValidMoves.Count == 0) return false;
+
+        foreach (var move in GetFilteredMoves())
+        {
+            foreach (var (player, pos) in cell.Positions)
+            {
+                if (move.To == pos && move.Player == player)
+                    return true;
+            }
+        }
+        return false;
+    }
+
+    private bool IsPieceClickable(Player player, Piece piece)
+    {
+        if (ValidMoves.Count == 0) return false;
+        return ValidMoves.Any(m => m.Player == player && m.From == piece.Position);
+    }
+
+    private IEnumerable<Move> GetFilteredMoves()
+    {
+        if (_selectedPieceKey is (var selPlayer, var selId) && State is not null)
+        {
+            var pieces = State.GetPieces(selPlayer).ToArray();
+            var selectedPiece = pieces.FirstOrDefault(p => p.Id == selId);
+            return ValidMoves.Where(m => m.Player == selPlayer && m.From == selectedPiece.Position);
+        }
+        return ValidMoves;
+    }
+
+    private bool IsCrossZonePosition(Player player, int position)
+    {
+        // Cross-zone only applies to Masters-style paths (PathLength 16)
+        if (Rules.PathLength != 16) return false;
+        // Positions 11-15 on the cross-zone can share physical cells with opponent
+        return position >= 11 && position <= 15 && position != 13;
+    }
+
+    private async Task HandlePieceClick(Player player, Piece piece)
+    {
+        var pieceMoves = ValidMoves.Where(m => m.Player == player && m.From == piece.Position).ToList();
+        if (pieceMoves.Count == 0) return;
+
+        if (pieceMoves.Count == 1)
+        {
+            _selectedPieceKey = null;
+            if (OnMoveSelected.HasDelegate)
+                await OnMoveSelected.InvokeAsync(pieceMoves[0]);
+        }
+        else
+        {
+            // Multiple moves from this position (e.g., Tournament backward) — select piece, highlight destinations
+            _selectedPieceKey = (player, piece.Id);
+        }
+    }
+
+    private async Task HandleCellClick(BoardCell cell)
+    {
+        if (ValidMoves.Count == 0) return;
+
+        foreach (var move in GetFilteredMoves())
+        {
+            foreach (var (player, pos) in cell.Positions)
+            {
+                if (move.To == pos && move.Player == player)
+                {
+                    _selectedPieceKey = null;
+                    if (OnMoveSelected.HasDelegate)
+                        await OnMoveSelected.InvokeAsync(move);
+                    return;
+                }
+            }
+        }
+    }
+
+    private async Task HandleStartPieceClick(Player player)
+    {
+        var enterMove = ValidMoves.FirstOrDefault(m => m.Player == player && m.From == -1);
+        if (enterMove != default && OnMoveSelected.HasDelegate)
+        {
+            _selectedPieceKey = null;
+            await OnMoveSelected.InvokeAsync(enterMove);
+        }
+    }
+}
