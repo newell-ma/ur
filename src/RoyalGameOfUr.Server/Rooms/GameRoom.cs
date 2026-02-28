@@ -1,14 +1,12 @@
-using Microsoft.AspNetCore.SignalR;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Engine.Dtos;
-using RoyalGameOfUr.Server.Hubs;
 
 namespace RoyalGameOfUr.Server.Rooms;
 
 public sealed class GameRoom : IGameObserver
 {
     private CancellationTokenSource? _cts;
-    private IHubContext<GameHub>? _hubContext;
+    private IGameBroadcaster? _broadcaster;
 
     public string Code { get; }
     public string RulesName { get; }
@@ -43,24 +41,24 @@ public sealed class GameRoom : IGameObserver
     public SignalRPlayer? GetSignalRPlayer(Player player) =>
         player == Player.One ? Player1 : Player2;
 
-    public void Start(IHubContext<GameHub> hubContext)
+    public void Start(IGameBroadcaster broadcaster)
     {
         if (IsStarted || Player1 is null || Player2 is null) return;
         IsStarted = true;
 
-        _hubContext = hubContext;
+        _broadcaster = broadcaster;
         _cts = new CancellationTokenSource();
 
         // Wire up move/skip callbacks to send SignalR messages to the active player
         Player1.OnMoveRequired = (moves, roll) =>
-            SendToPlayer(Player1, "ReceiveMoveRequired", moves.ToArray(), roll);
+            _broadcaster.SendToPlayer(Player1.ConnectionId, "ReceiveMoveRequired", moves.ToArray(), roll);
         Player1.OnSkipRequired = (moves, roll) =>
-            SendToPlayer(Player1, "ReceiveSkipRequired", moves.ToArray(), roll);
+            _broadcaster.SendToPlayer(Player1.ConnectionId, "ReceiveSkipRequired", moves.ToArray(), roll);
 
         Player2.OnMoveRequired = (moves, roll) =>
-            SendToPlayer(Player2, "ReceiveMoveRequired", moves.ToArray(), roll);
+            _broadcaster.SendToPlayer(Player2.ConnectionId, "ReceiveMoveRequired", moves.ToArray(), roll);
         Player2.OnSkipRequired = (moves, roll) =>
-            SendToPlayer(Player2, "ReceiveSkipRequired", moves.ToArray(), roll);
+            _broadcaster.SendToPlayer(Player2.ConnectionId, "ReceiveSkipRequired", moves.ToArray(), roll);
 
         var rules = GameStateMapper.ResolveRules(RulesName);
         var dice = new Dice(null, rules.DiceCount);
@@ -79,7 +77,7 @@ public sealed class GameRoom : IGameObserver
             }
             catch (Exception ex)
             {
-                await SendToGroup("ReceiveError", ex.Message);
+                await _broadcaster.BroadcastError(GroupName, ex.Message);
             }
             finally
             {
@@ -101,40 +99,33 @@ public sealed class GameRoom : IGameObserver
 
     async Task IGameObserver.OnStateChangedAsync(GameState state)
     {
+        if (_broadcaster is null) return;
         var dto = GameStateMapper.ToDto(state);
-        await SendToGroup("ReceiveStateChanged", dto);
+        await _broadcaster.BroadcastStateChanged(GroupName, dto);
     }
 
     async Task IGameObserver.OnDiceRolledAsync(Player player, int roll)
     {
-        await SendToGroup("ReceiveDiceRolled", player, roll);
+        if (_broadcaster is null) return;
+        await _broadcaster.BroadcastDiceRolled(GroupName, player, roll);
     }
 
     async Task IGameObserver.OnMoveMadeAsync(Move move, MoveOutcome outcome)
     {
-        await SendToGroup("ReceiveMoveMade", move, outcome);
+        if (_broadcaster is null) return;
+        await _broadcaster.BroadcastMoveMade(GroupName, move, outcome);
     }
 
     async Task IGameObserver.OnTurnForfeitedAsync(Player player)
     {
-        await SendToGroup("ReceiveTurnForfeited", player);
+        if (_broadcaster is null) return;
+        await _broadcaster.BroadcastTurnForfeited(GroupName, player);
     }
 
     async Task IGameObserver.OnGameOverAsync(Player winner)
     {
-        await SendToGroup("ReceiveGameOver", winner);
+        if (_broadcaster is null) return;
+        await _broadcaster.BroadcastGameOver(GroupName, winner);
         IsFinished = true;
-    }
-
-    private Task SendToGroup(string method, params object?[] args)
-    {
-        if (_hubContext is null) return Task.CompletedTask;
-        return _hubContext.Clients.Group(GroupName).SendCoreAsync(method, args);
-    }
-
-    private Task SendToPlayer(SignalRPlayer player, string method, params object?[] args)
-    {
-        if (_hubContext is null) return Task.CompletedTask;
-        return _hubContext.Clients.Client(player.ConnectionId).SendCoreAsync(method, args);
     }
 }

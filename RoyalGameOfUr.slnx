@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/RoyalGameOfUr.Engine.Tests/RoyalGameOfUr.Engine.Tests.csproj" />
     <Project Path="tests/RoyalGameOfUr.Web.Tests/RoyalGameOfUr.Web.Tests.csproj" />
+    <Project Path="tests/RoyalGameOfUr.Server.Tests/RoyalGameOfUr.Server.Tests.csproj" />
   </Folder>
 </Solution>

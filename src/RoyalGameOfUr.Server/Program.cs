@@ -1,10 +1,13 @@
 using RoyalGameOfUr.Server.Hubs;
 using RoyalGameOfUr.Server.Rooms;
+using RoyalGameOfUr.Server.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<RoomManager>();
+builder.Services.AddSingleton<IGameBroadcaster, SignalRGameBroadcaster>();
+builder.Services.AddSingleton<IRoomService, RoomService>();
 
 var app = builder.Build();
 

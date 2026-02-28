@@ -10,13 +10,13 @@ public sealed class RoomManager
     public GameRoom CreateRoom(string rulesName, string hostName, string hostConnectionId)
     {
         string code;
+        GameRoom room;
         do
         {
             code = GenerateCode();
-        } while (!_rooms.TryAdd(code, null!)); // reserve the key
+            room = new GameRoom(code, rulesName, hostName, hostConnectionId);
+        } while (!_rooms.TryAdd(code, room));
 
-        var room = new GameRoom(code, rulesName, hostName, hostConnectionId);
-        _rooms[code] = room;
         return room;
     }
 
