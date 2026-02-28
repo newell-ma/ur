@@ -63,50 +63,7 @@ else
 
 var dice = new Dice(null, rules.DiceCount);
 var game = new Game(dice, rules);
-
-var runner = new GameRunner(game, player1, player2);
-
-runner.OnStateChanged += state =>
-{
-    BoardRenderer.Render(state);
-};
-
-runner.OnDiceRolled += (player, roll) =>
-{
-    string name = player == Player.One ? player1.Name : player2.Name;
-    if (rules.ZeroRollValue.HasValue && roll == 0)
-        Console.WriteLine($"{name} rolled: {roll} (moves {rules.ZeroRollValue.Value})");
-    else
-        Console.WriteLine($"{name} rolled: {roll}");
-};
-
-runner.OnMoveMade += (move, result) =>
-{
-    string resultText = result switch
-    {
-        MoveResult.Moved => "",
-        MoveResult.ExtraTurn => " -> Extra turn!",
-        MoveResult.Captured => " -> Captured!",
-        MoveResult.CapturedAndExtraTurn => " -> Captured + Extra turn!",
-        MoveResult.BorneOff => " -> Borne off!",
-        MoveResult.BorneOffAndExtraTurn => " -> Borne off + Extra turn!",
-        MoveResult.Win => " -> WIN!",
-        _ => ""
-    };
-    Console.WriteLine($"  Move executed{resultText}");
-};
-
-runner.OnTurnForfeited += player =>
-{
-    string name = player == Player.One ? player1.Name : player2.Name;
-    Console.WriteLine($"  {name} has no valid moves — turn forfeited.");
-};
-
-runner.OnGameOver += winner =>
-{
-    string name = winner == Player.One ? player1.Name : player2.Name;
-    Console.WriteLine();
-    Console.WriteLine($"*** {name} wins the game! ***");
-};
+var observer = new ConsoleGameObserver(player1, player2, rules);
+var runner = new GameRunner(game, player1, player2, observer);
 
 await runner.RunAsync();
