@@ -2,9 +2,9 @@ namespace RoyalGameOfUr.Engine;
 
 public interface IGameObserver
 {
-    void OnStateChanged(GameState state);
-    void OnDiceRolled(Player player, int roll);
-    void OnMoveMade(Move move, MoveOutcome outcome);
-    void OnTurnForfeited(Player player);
-    void OnGameOver(Player winner);
+    Task OnStateChangedAsync(GameState state);
+    Task OnDiceRolledAsync(Player player, int roll);
+    Task OnMoveMadeAsync(Move move, MoveOutcome outcome);
+    Task OnTurnForfeitedAsync(Player player);
+    Task OnGameOverAsync(Player winner);
 }

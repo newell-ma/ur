@@ -17,22 +17,22 @@ public sealed class GameRunner
 
     public async Task RunAsync(CancellationToken ct = default)
     {
-        _observer.OnStateChanged(_game.State);
+        await _observer.OnStateChangedAsync(_game.State);
 
         while (!_game.State.IsGameOver)
         {
             ct.ThrowIfCancellationRequested();
 
             int roll = _game.Roll();
-            _observer.OnDiceRolled(_game.State.CurrentPlayer, roll);
+            await _observer.OnDiceRolledAsync(_game.State.CurrentPlayer, roll);
 
             var validMoves = _game.GetValidMoves();
 
             if (validMoves.Count == 0)
             {
                 _game.ForfeitTurn();
-                _observer.OnTurnForfeited(_game.State.CurrentPlayer.Opponent());
-                _observer.OnStateChanged(_game.State);
+                await _observer.OnTurnForfeitedAsync(_game.State.CurrentPlayer.Opponent());
+                await _observer.OnStateChangedAsync(_game.State);
                 continue;
             }
 
@@ -53,8 +53,8 @@ public sealed class GameRunner
                     if (shouldSkip)
                     {
                         _game.ForfeitTurn();
-                        _observer.OnTurnForfeited(_game.State.CurrentPlayer.Opponent());
-                        _observer.OnStateChanged(_game.State);
+                        await _observer.OnTurnForfeitedAsync(_game.State.CurrentPlayer.Opponent());
+                        await _observer.OnStateChangedAsync(_game.State);
                         continue;
                     }
                 }
@@ -64,12 +64,12 @@ public sealed class GameRunner
             var chosenMove = await playerImpl.ChooseMoveAsync(_game.State, validMoves, roll);
             var outcome = _game.ExecuteMove(chosenMove);
 
-            _observer.OnMoveMade(chosenMove, outcome);
-            _observer.OnStateChanged(_game.State);
+            await _observer.OnMoveMadeAsync(chosenMove, outcome);
+            await _observer.OnStateChangedAsync(_game.State);
 
             if (outcome.Result == MoveResult.Win)
             {
-                _observer.OnGameOver(_game.State.Winner!.Value);
+                await _observer.OnGameOverAsync(_game.State.Winner!.Value);
             }
         }
     }

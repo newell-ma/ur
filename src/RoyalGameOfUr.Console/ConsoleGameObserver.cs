@@ -15,21 +15,23 @@ public sealed class ConsoleGameObserver : IGameObserver
         _rules = rules;
     }
 
-    public void OnStateChanged(GameState state)
+    public Task OnStateChangedAsync(GameState state)
     {
         BoardRenderer.Render(state);
+        return Task.CompletedTask;
     }
 
-    public void OnDiceRolled(Player player, int roll)
+    public Task OnDiceRolledAsync(Player player, int roll)
     {
         string name = PlayerName(player);
         if (roll == 0 && _rules.ZeroRollValue is { } effectiveZero)
             System.Console.WriteLine($"{name} rolled: {roll} (moves {effectiveZero})");
         else
             System.Console.WriteLine($"{name} rolled: {roll}");
+        return Task.CompletedTask;
     }
 
-    public void OnMoveMade(Move move, MoveOutcome outcome)
+    public Task OnMoveMadeAsync(Move move, MoveOutcome outcome)
     {
         string resultText = outcome.Result switch
         {
@@ -43,19 +45,22 @@ public sealed class ConsoleGameObserver : IGameObserver
             _ => ""
         };
         System.Console.WriteLine($"  Piece #{move.PieceIndex} moved{resultText}");
+        return Task.CompletedTask;
     }
 
-    public void OnTurnForfeited(Player player)
+    public Task OnTurnForfeitedAsync(Player player)
     {
         string name = PlayerName(player);
         System.Console.WriteLine($"  {name} has no valid moves — turn forfeited.");
+        return Task.CompletedTask;
     }
 
-    public void OnGameOver(Player winner)
+    public Task OnGameOverAsync(Player winner)
     {
         string name = PlayerName(winner);
         System.Console.WriteLine();
         System.Console.WriteLine($"*** {name} wins the game! ***");
+        return Task.CompletedTask;
     }
 
     private string PlayerName(Player player) =>

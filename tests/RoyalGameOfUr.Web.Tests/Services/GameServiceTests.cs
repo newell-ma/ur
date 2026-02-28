@@ -61,22 +61,15 @@ public class GameServiceTests
     }
 
     [Fact]
-    public void OnDiceRolled_SetsStatusMessage()
+    public async Task OnDiceRolled_SetsStatusMessage()
     {
         var svc = new GameService();
-        // Access the observer interface explicitly
         IGameObserver observer = svc;
 
-        // Set up state so the observer can read EffectiveRoll
-        // We need to set player names first
-        // Use reflection-free approach: call StartGameAsync then test observer
-        // Simpler: just test that calling OnDiceRolled updates the properties
-
-        // Create a minimal state for the service
         var state = new GameStateBuilder(GameRules.Finkel).Build();
-        observer.OnStateChanged(state);
+        await observer.OnStateChangedAsync(state);
 
-        observer.OnDiceRolled(Player.One, 3);
+        await observer.OnDiceRolledAsync(Player.One, 3);
 
         Assert.Equal(3, svc.LastRollDisplay);
         Assert.True(svc.DiceRolled);
@@ -85,7 +78,7 @@ public class GameServiceTests
     }
 
     [Fact]
-    public void OnMoveMade_ClearsValidMoves()
+    public async Task OnMoveMade_ClearsValidMoves()
     {
         var svc = new GameService();
         IGameObserver observer = svc;
@@ -93,19 +86,19 @@ public class GameServiceTests
         var move = new Move(Player.One, 0, -1, 3);
         var outcome = new MoveOutcome(MoveResult.Moved);
 
-        observer.OnMoveMade(move, outcome);
+        await observer.OnMoveMadeAsync(move, outcome);
 
         Assert.Empty(svc.ValidMoves);
         Assert.False(svc.DiceRolled);
     }
 
     [Fact]
-    public void OnGameOver_SetsWinner()
+    public async Task OnGameOver_SetsWinner()
     {
         var svc = new GameService();
         IGameObserver observer = svc;
 
-        observer.OnGameOver(Player.Two);
+        await observer.OnGameOverAsync(Player.Two);
 
         Assert.Equal(Player.Two, svc.Winner);
         Assert.Contains("wins", svc.StatusMessage);
