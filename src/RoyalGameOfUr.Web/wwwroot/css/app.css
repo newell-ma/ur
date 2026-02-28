@@ -1,0 +1,118 @@
+/* === Mesopotamian Theme Variables === */
+:root {
+    --sand: #d4a76a;
+    --terracotta: #c45a3c;
+    --deep-blue: #1a3a5c;
+    --lapis: #26619c;
+    --gold: #c8a84e;
+    --ivory: #f5f0e1;
+    --obsidian: #1a1a2e;
+
+    --player1-color: var(--terracotta);
+    --player1-light: #e07a5f;
+    --player2-color: var(--lapis);
+    --player2-light: #4a90d9;
+
+    --board-bg: #b8956a;
+    --board-border: #8b6914;
+    --cell-bg: #e8d5b0;
+    --cell-border: #a08050;
+    --rosette-gold: var(--gold);
+
+    --cell-size: 76;
+    --cell-gap: 6;
+    --padding: 20;
+
+    --font-main: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* === Global Reset & Layout === */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    font-family: var(--font-main);
+    color: var(--ivory);
+    background: linear-gradient(135deg, var(--obsidian) 0%, #2a1a3e 50%, var(--obsidian) 100%);
+    overflow: hidden;
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    font-size: 1.25rem;
+    color: var(--gold);
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+h1 {
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    font-weight: 700;
+    font-size: 1.75rem;
+    margin-bottom: 0.75rem;
+    text-align: center;
+}
+
+h2 {
+    color: var(--gold);
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* === Utility === */
+.text-player1 { color: var(--player1-color); }
+.text-player2 { color: var(--player2-color); }
+
+.btn {
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--gold);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--gold);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.btn:hover {
+    background: var(--gold);
+    color: var(--obsidian);
+}
+
+.btn-primary {
+    background: var(--gold);
+    color: var(--obsidian);
+}
+
+.btn-primary:hover {
+    background: var(--sand);
+}
+
+select {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    background: var(--obsidian);
+    color: var(--ivory);
+    font-family: var(--font-main);
+    font-size: 0.9rem;
+}

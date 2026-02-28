@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RoyalGameOfUr.Console/RoyalGameOfUr.Console.csproj" />
+    <Project Path="src/RoyalGameOfUr.Engine/RoyalGameOfUr.Engine.csproj" />
+    <Project Path="src/RoyalGameOfUr.Web/RoyalGameOfUr.Web.csproj" />
+    <Project Path="src/RoyalGameOfUr.Server/RoyalGameOfUr.Server.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RoyalGameOfUr.Engine.Tests/RoyalGameOfUr.Engine.Tests.csproj" />
+    <Project Path="tests/RoyalGameOfUr.Web.Tests/RoyalGameOfUr.Web.Tests.csproj" />
+    <Project Path="tests/RoyalGameOfUr.Server.Tests/RoyalGameOfUr.Server.Tests.csproj" />
+    <Project Path="tests/RoyalGameOfUr.E2E/RoyalGameOfUr.E2E.csproj" />
+  </Folder>
+</Solution>

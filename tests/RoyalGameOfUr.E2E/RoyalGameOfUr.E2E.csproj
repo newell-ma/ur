@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RoyalGameOfUr.Server\RoyalGameOfUr.Server.csproj" />
+    <ProjectReference Include="..\..\src\RoyalGameOfUr.Engine\RoyalGameOfUr.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

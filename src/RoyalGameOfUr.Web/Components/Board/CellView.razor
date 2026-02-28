@@ -1,0 +1,50 @@
+@* Single board cell: rect + rosette star decoration + valid-move highlight *@
+
+<g>
+    <rect x="@X" y="@Y" width="@BoardCoordinateMapper.CellSize" height="@BoardCoordinateMapper.CellSize"
+          rx="4" ry="4"
+          class="board-cell @(IsRosette ? "rosette" : "") @(IsValidDestination ? "valid-destination" : "")"
+          @onclick="OnCellClicked" />
+
+    @if (IsRosette)
+    {
+        @* 8-pointed star for rosettes *@
+        <g transform="translate(@CenterX, @CenterY)">
+            @{
+                var starPoints = GenerateStarPoints(22, 10, 8);
+            }
+            <polygon points="@starPoints" class="rosette-star" />
+        </g>
+    }
+</g>
+
+@code {
+    [Parameter] public double X { get; set; }
+    [Parameter] public double Y { get; set; }
+    [Parameter] public bool IsRosette { get; set; }
+    [Parameter] public bool IsValidDestination { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private double CenterX => X + BoardCoordinateMapper.CellSize / 2;
+    private double CenterY => Y + BoardCoordinateMapper.CellSize / 2;
+
+    private async Task OnCellClicked()
+    {
+        if (IsValidDestination && OnClick.HasDelegate)
+            await OnClick.InvokeAsync();
+    }
+
+    private static string GenerateStarPoints(double outerR, double innerR, int points)
+    {
+        var coords = new List<string>();
+        for (int i = 0; i < points * 2; i++)
+        {
+            double angle = Math.PI * i / points - Math.PI / 2;
+            double r = i % 2 == 0 ? outerR : innerR;
+            double px = r * Math.Cos(angle);
+            double py = r * Math.Sin(angle);
+            coords.Add($"{px:F1},{py:F1}");
+        }
+        return string.Join(" ", coords);
+    }
+}

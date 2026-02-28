@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <PackageReference Include="TUnit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RoyalGameOfUr.Web\RoyalGameOfUr.Web.csproj" />
+    <ProjectReference Include="..\..\src\RoyalGameOfUr.Engine\RoyalGameOfUr.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
