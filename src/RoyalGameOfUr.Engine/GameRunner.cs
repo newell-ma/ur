@@ -62,12 +62,12 @@ public sealed class GameRunner
 
             var playerImpl = GetPlayer(_game.State.CurrentPlayer);
             var chosenMove = await playerImpl.ChooseMoveAsync(_game.State, validMoves, roll);
-            var result = _game.ExecuteMove(chosenMove);
+            var outcome = _game.ExecuteMove(chosenMove);
 
-            _observer.OnMoveMade(chosenMove, result);
+            _observer.OnMoveMade(chosenMove, outcome);
             _observer.OnStateChanged(_game.State);
 
-            if (result == MoveResult.Win)
+            if (outcome.Result == MoveResult.Win)
             {
                 _observer.OnGameOver(_game.State.Winner!.Value);
             }

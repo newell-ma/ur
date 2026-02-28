@@ -41,10 +41,11 @@ public sealed class ConsolePlayer : ISkipCapablePlayer
         {
             System.Console.Write("  > ");
             string? input = System.Console.ReadLine()?.Trim().ToLowerInvariant();
-            if (input == "y" || input == "yes")
-                return Task.FromResult(true);
-            if (input == "n" || input == "no")
-                return Task.FromResult(false);
+            switch (input)
+            {
+                case "y" or "yes": return Task.FromResult(true);
+                case "n" or "no": return Task.FromResult(false);
+            }
             System.Console.WriteLine("  Please enter y or n.");
         }
     }
@@ -54,6 +55,6 @@ public sealed class ConsolePlayer : ISkipCapablePlayer
         string from = move.From == -1 ? "START" : $"pos {move.From}";
         string to = move.To == rules.PathLength ? "BEAR OFF" : $"pos {move.To}";
         string direction = move.To < move.From ? " (backward)" : "";
-        return $"{from} -> {to}{direction}";
+        return $"Piece #{move.PieceIndex}: {from} -> {to}{direction}";
     }
 }

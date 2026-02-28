@@ -69,7 +69,7 @@ public class GameTests
         var game = new Game(new FixedDice(1), GameRules.Finkel);
 
         Assert.Throws<InvalidOperationException>(() =>
-            game.ExecuteMove(new Move(Player.One, -1, 0)));
+            game.ExecuteMove(new Move(Player.One, 0, -1, 0)));
     }
 
     [Test]
@@ -163,7 +163,7 @@ public class GameTests
     [Test]
     public async Task ExactBearOffRequired()
     {
-        // PathLength=15, piece at 13, roll 3 = 16 > 15 → invalid
+        // PathLength=15, piece at 13, roll 3 = 16 > 15 -> invalid
         var state = new GameStateBuilder(GameRules.Finkel)
             .WithPiece(Player.One, 13)
             .WithCurrentPlayer(Player.One)
@@ -179,7 +179,7 @@ public class GameTests
     [Test]
     public async Task ExactBearOff_Allowed()
     {
-        // Piece at 13, roll 2 = 15 = PathLength → valid bear off
+        // Piece at 13, roll 2 = 15 = PathLength -> valid bear off
         var state = new GameStateBuilder(GameRules.Finkel)
             .WithPiece(Player.One, 13)
             .WithCurrentPlayer(Player.One)
@@ -195,12 +195,12 @@ public class GameTests
     [Test]
     public async Task Deduplication_MultiplePiecesAtSamePosition()
     {
-        // Two pieces at -1, roll 1 → only one enter move
+        // Two pieces at -1, roll 1 -> only one enter move
         var game = new Game(new FixedDice(1), GameRules.Finkel);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        // All 7 pieces at -1, but only one unique move (-1 → 0)
+        // All 7 pieces at -1, but only one unique move (-1 -> 0)
         await Assert.That(moves.Count).IsEqualTo(1);
     }
 
@@ -211,7 +211,7 @@ public class GameTests
         // Actually the private lane means each player has their own positions 0-4 and 13-14.
         // But the way the game works, pieces on private lanes can't collide because
         // each player has their own path. The shared lane check handles this.
-        // Let's verify: P1 at 3, P2 at 3 → position 3 is NOT shared, so no capture issue
+        // Let's verify: P1 at 3, P2 at 3 -> position 3 is NOT shared, so no capture issue
         // They're on different physical squares even though same index
         var state = new GameStateBuilder(GameRules.Finkel)
             .WithPiece(Player.One, 3)
@@ -257,9 +257,9 @@ public class GameTests
         var moves = game.GetValidMoves();
         var rosetteMove = moves.First(m => m.To == 4);
 
-        var result = game.ExecuteMove(rosetteMove);
+        var outcome = game.ExecuteMove(rosetteMove);
 
-        await Assert.That(result).IsEqualTo(MoveResult.ExtraTurn);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
     }
 
@@ -274,10 +274,11 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.One, 5, 7);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.Captured);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
+        await Assert.That(outcome.HasCapture).IsTrue();
         // P2's piece should be back at start
         await Assert.That(game.State.IsOccupiedBy(Player.Two, 7)).IsFalse();
         await Assert.That(game.State.PiecesAtStart(Player.Two)).IsEqualTo(7); // all back including captured
@@ -293,10 +294,10 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.One, 13, 15);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.BorneOff);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.BorneOff);
         await Assert.That(game.State.PiecesBorneOff(Player.One)).IsEqualTo(1);
     }
 
@@ -314,10 +315,10 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.One, 13, 15);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.Win);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Win);
         await Assert.That(game.State.Winner).IsEqualTo(Player.One);
         await Assert.That(game.State.IsGameOver).IsTrue();
     }
@@ -334,7 +335,8 @@ public class GameTests
         var state = builder.Build();
         var game = new Game(new FixedDice(2, 1), state);
         game.Roll();
-        game.ExecuteMove(new Move(Player.One, 13, 15));
+        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        game.ExecuteMove(move);
 
         Assert.Throws<InvalidOperationException>(() => game.Roll());
     }
@@ -375,18 +377,20 @@ public class GameTests
             .WithCurrentPlayer(Player.One)
             .Build();
 
-        // Roll 4: piece at 0 → 4 (rosette, extra turn)
-        // Roll 4: piece at 4 → 8 (rosette, extra turn)
+        // Roll 4: piece at 0 -> 4 (rosette, extra turn)
+        // Roll 4: piece at 4 -> 8 (rosette, extra turn)
         var game = new Game(new FixedDice(4, 4), state);
 
         game.Roll();
-        var result1 = game.ExecuteMove(new Move(Player.One, 0, 4));
-        await Assert.That(result1).IsEqualTo(MoveResult.ExtraTurn);
+        var move1 = game.GetValidMoves().First(m => m.From == 0 && m.To == 4);
+        var outcome1 = game.ExecuteMove(move1);
+        await Assert.That(outcome1.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
 
         game.Roll();
-        var result2 = game.ExecuteMove(new Move(Player.One, 4, 8));
-        await Assert.That(result2).IsEqualTo(MoveResult.ExtraTurn);
+        var move2 = game.GetValidMoves().First(m => m.From == 4 && m.To == 8);
+        var outcome2 = game.ExecuteMove(move2);
+        await Assert.That(outcome2.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
     }
 
@@ -403,9 +407,10 @@ public class GameTests
 
         // P1 captures P2 at position 7
         game.Roll();
-        game.ExecuteMove(new Move(Player.One, 5, 7));
+        var captureMove = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        game.ExecuteMove(captureMove);
 
-        // P2's turn, piece is back at -1, roll 1 → enter at 0
+        // P2's turn, piece is back at -1, roll 1 -> enter at 0
         game.Roll();
         var moves = game.GetValidMoves();
         await Assert.That(moves.Count).IsEqualTo(1);
@@ -424,21 +429,24 @@ public class GameTests
             sharedLaneStart: 2,
             sharedLaneEnd: 3);
 
-        // P1: roll 2 → enter at 1 (-1+2=1)
-        // P2: roll 3 → enter at 2 (-1+3=2, rosette → extra turn)
-        // P2: roll 2 → move 2→4, bear off → Win
+        // P1: roll 2 -> enter at 1 (-1+2=1)
+        // P2: roll 3 -> enter at 2 (-1+3=2, rosette -> extra turn)
+        // P2: roll 2 -> move 2->4, bear off -> Win
         var game = new Game(new FixedDice(2, 3, 2), rules);
 
         game.Roll();
-        game.ExecuteMove(new Move(Player.One, -1, 1));
+        var p1Move = game.GetValidMoves().First(m => m.From == -1 && m.To == 1);
+        game.ExecuteMove(p1Move);
 
         game.Roll();
-        var r1 = game.ExecuteMove(new Move(Player.Two, -1, 2));
-        await Assert.That(r1).IsEqualTo(MoveResult.ExtraTurn);
+        var p2Move1 = game.GetValidMoves().First(m => m.From == -1 && m.To == 2);
+        var r1 = game.ExecuteMove(p2Move1);
+        await Assert.That(r1.Result).IsEqualTo(MoveResult.ExtraTurn);
 
         game.Roll();
-        var r2 = game.ExecuteMove(new Move(Player.Two, 2, 4));
-        await Assert.That(r2).IsEqualTo(MoveResult.Win);
+        var p2Move2 = game.GetValidMoves().First(m => m.From == 2 && m.To == 4);
+        var r2 = game.ExecuteMove(p2Move2);
+        await Assert.That(r2.Result).IsEqualTo(MoveResult.Win);
         await Assert.That(game.State.Winner).IsEqualTo(Player.Two);
     }
 
@@ -474,9 +482,10 @@ public class GameTests
         var game = new Game(new FixedDice(1), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, rosettePos - 1, rosettePos));
+        var move = game.GetValidMoves().First(m => m.From == rosettePos - 1 && m.To == rosettePos);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.ExtraTurn);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
     }
 
@@ -527,10 +536,11 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.One, 9, 11);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 9 && m.To == 11);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.CapturedAndExtraTurn); // 11 is rosette + capture
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.CapturedAndExtraTurn); // 11 is rosette + capture
+        await Assert.That(outcome.HasCapture).IsTrue();
         await Assert.That(game.State.IsOccupiedBy(Player.Two, 15)).IsFalse();
         await Assert.That(game.State.PiecesAtStart(Player.Two)).IsEqualTo(7);
     }
@@ -547,10 +557,10 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.Two, 9, 11);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 9 && m.To == 11);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
         await Assert.That(game.State.IsOccupiedBy(Player.One, 15)).IsFalse();
     }
 
@@ -566,10 +576,10 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = new Move(Player.One, 12, 14);
-        var result = game.ExecuteMove(move);
+        var move = game.GetValidMoves().First(m => m.From == 12 && m.To == 14);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.Captured);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
         await Assert.That(game.State.IsOccupiedBy(Player.Two, 12)).IsFalse();
     }
 
@@ -586,10 +596,11 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, 5, 7));
+        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var outcome = game.ExecuteMove(move);
 
-        // Position 7 is a rosette in Masters but SafeRosettes is false → capture allowed
-        await Assert.That(result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
+        // Position 7 is a rosette in Masters but SafeRosettes is false -> capture allowed
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
     }
 
     #endregion
@@ -695,9 +706,10 @@ public class GameTests
         var game = new Game(new FixedDice(3), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, 5, 8));
+        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 8);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.CapturedAndExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
     }
 
@@ -712,9 +724,10 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, 5, 7));
+        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.Captured);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.Two);
     }
 
@@ -768,7 +781,8 @@ public class GameTests
         var game = new Game(new FixedDice(1), state);
         game.Roll();
 
-        game.ExecuteMove(new Move(Player.One, 7, 8));
+        var move = game.GetValidMoves().First(m => m.From == 7 && m.To == 8);
+        game.ExecuteMove(move);
 
         // Both pieces should have moved from 7 to 8
         await Assert.That(game.State.IsOccupiedBy(Player.One, 7)).IsFalse();
@@ -791,9 +805,10 @@ public class GameTests
         var game = new Game(new FixedDice(1), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, 15, 16));
+        var move = game.GetValidMoves().First(m => m.From == 15 && m.To == 16);
+        var outcome = game.ExecuteMove(move);
 
-        await Assert.That(result).IsEqualTo(MoveResult.Win);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Win);
         await Assert.That(game.State.PiecesBorneOff(Player.One)).IsEqualTo(5);
     }
 
@@ -815,7 +830,7 @@ public class GameTests
         // Let's use a non-rosette position instead
         var moves = game.GetValidMoves();
         var captureMove = moves.FirstOrDefault(m => m.From == 5 && m.To == 7);
-        // Position 7 is a rosette and Tournament has SafeRosettes=true → blocked
+        // Position 7 is a rosette and Tournament has SafeRosettes=true -> blocked
         await Assert.That(captureMove).IsEqualTo(default(Move));
     }
 
@@ -827,15 +842,16 @@ public class GameTests
         var state = new GameStateBuilder(rules)
             .WithPiece(Player.One, 4)
             .WithPiece(Player.Two, 6) // non-rosette shared
-            .WithPiece(Player.Two, 6) // stacked opponent — wait, stacking only on rosettes
+            .WithPiece(Player.Two, 6) // stacked opponent -- wait, stacking only on rosettes
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
         // P1 moves to 6, captures. With AllowStacking, captures ALL at position 6
-        var result = game.ExecuteMove(new Move(Player.One, 4, 6));
-        await Assert.That(result).IsEqualTo(MoveResult.Captured);
+        var move = game.GetValidMoves().First(m => m.From == 4 && m.To == 6);
+        var outcome = game.ExecuteMove(move);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
         await Assert.That(game.State.IsOccupiedBy(Player.Two, 6)).IsFalse();
         // Both P2 pieces should be back at start
         await Assert.That(game.State.PiecesAtStart(Player.Two)).IsEqualTo(5);
@@ -866,7 +882,7 @@ public class GameTests
     {
         var rules = GameRules.Tournament;
         var state = new GameStateBuilder(rules)
-            .WithPiece(Player.One, 1) // position 1, roll 3 → -2 (invalid)
+            .WithPiece(Player.One, 1) // position 1, roll 3 -> -2 (invalid)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(3), state);
@@ -890,9 +906,9 @@ public class GameTests
         game.Roll();
 
         // Backward move from 8 to 6 should capture P2
-        var backwardMove = new Move(Player.One, 8, 6);
-        var result = game.ExecuteMove(backwardMove);
-        await Assert.That(result).IsEqualTo(MoveResult.Captured);
+        var backwardMove = game.GetValidMoves().First(m => m.From == 8 && m.To == 6);
+        var outcome = game.ExecuteMove(backwardMove);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
         await Assert.That(game.State.IsOccupiedBy(Player.Two, 6)).IsFalse();
     }
 
@@ -970,7 +986,7 @@ public class GameTests
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        // Has forward move (5→7), so can't forfeit
+        // Has forward move (5->7), so can't forfeit
         Assert.Throws<InvalidOperationException>(() => game.ForfeitTurn());
     }
 
@@ -980,7 +996,7 @@ public class GameTests
         var game = new Game(new FixedDice(1), GameRules.Finkel);
         game.Roll();
 
-        // Has moves, AllowVoluntarySkip=false → can't forfeit
+        // Has moves, AllowVoluntarySkip=false -> can't forfeit
         Assert.Throws<InvalidOperationException>(() => game.ForfeitTurn());
     }
 
@@ -999,11 +1015,80 @@ public class GameTests
         var game = new Game(new FixedDice(1), state);
         game.Roll();
 
-        var result = game.ExecuteMove(new Move(Player.One, 2, 3));
+        var move = game.GetValidMoves().First(m => m.From == 2 && m.To == 3);
+        var outcome = game.ExecuteMove(move);
 
         // Tournament: RosetteExtraRoll=false, so no extra turn
-        await Assert.That(result).IsEqualTo(MoveResult.Moved);
+        await Assert.That(outcome.Result).IsEqualTo(MoveResult.Moved);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.Two);
+    }
+
+    #endregion
+
+    #region Piece Identity Tests
+
+    [Test]
+    public async Task Pieces_HaveCorrectIds()
+    {
+        var state = new GameStateBuilder(GameRules.Finkel).Build();
+        var pieces = state.GetPieces(Player.One).ToArray();
+
+        for (int i = 0; i < pieces.Length; i++)
+        {
+            await Assert.That(pieces[i].Id).IsEqualTo(i);
+            await Assert.That(pieces[i].Position).IsEqualTo(-1);
+        }
+    }
+
+    [Test]
+    public async Task Move_CarriesPieceIndex()
+    {
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 3)
+            .WithPiece(Player.One, 5)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        // Each move should have a valid PieceIndex
+        foreach (var move in moves)
+        {
+            await Assert.That(move.PieceIndex).IsGreaterThanOrEqualTo(0);
+            await Assert.That(move.PieceIndex).IsLessThan(7);
+        }
+    }
+
+    [Test]
+    public async Task MoveOutcome_TracksCapture()
+    {
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 5)
+            .WithPiece(Player.Two, 7)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var outcome = game.ExecuteMove(move);
+
+        await Assert.That(outcome.HasCapture).IsTrue();
+        await Assert.That(outcome.CapturedPieceIndex).IsGreaterThanOrEqualTo(0);
+    }
+
+    [Test]
+    public async Task MoveOutcome_NoCaptureIndex_WhenNoCapture()
+    {
+        var game = new Game(new FixedDice(1), GameRules.Finkel);
+        game.Roll();
+
+        var move = game.GetValidMoves()[0];
+        var outcome = game.ExecuteMove(move);
+
+        await Assert.That(outcome.HasCapture).IsFalse();
+        await Assert.That(outcome.CapturedPieceIndex).IsEqualTo(-1);
     }
 
     #endregion

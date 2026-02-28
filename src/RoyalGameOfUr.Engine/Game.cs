@@ -29,8 +29,8 @@ public sealed class Game
         int roll = _dice.Roll();
         State.LastRoll = roll;
 
-        int effectiveRoll = (roll == 0 && State.Rules.ZeroRollValue.HasValue)
-            ? State.Rules.ZeroRollValue.Value
+        int effectiveRoll = roll == 0 && State.Rules.ZeroRollValue is { } zeroVal
+            ? zeroVal
             : roll;
         State.EffectiveRoll = effectiveRoll;
 
@@ -53,8 +53,9 @@ public sealed class Game
         var moves = new List<Move>();
         var seen = new HashSet<(int from, int to)>();
 
-        foreach (int from in pieces)
+        for (int idx = 0; idx < pieces.Length; idx++)
         {
+            int from = pieces[idx].Position;
             if (from == rules.PathLength) continue; // already borne off
 
             // Forward move
@@ -62,7 +63,7 @@ public sealed class Game
             if (forwardTo <= rules.PathLength && IsValidDestination(player, forwardTo, rules))
             {
                 if (seen.Add((from, forwardTo)))
-                    moves.Add(new Move(player, from, forwardTo));
+                    moves.Add(new Move(player, idx, from, forwardTo));
             }
 
             // Backward move
@@ -72,7 +73,7 @@ public sealed class Game
                 if (backwardTo >= 0 && IsValidDestination(player, backwardTo, rules))
                 {
                     if (seen.Add((from, backwardTo)))
-                        moves.Add(new Move(player, from, backwardTo));
+                        moves.Add(new Move(player, idx, from, backwardTo));
                 }
             }
         }
@@ -104,7 +105,7 @@ public sealed class Game
         return true;
     }
 
-    public MoveResult ExecuteMove(Move move)
+    public MoveOutcome ExecuteMove(Move move)
     {
         if (!_hasRolled)
             throw new InvalidOperationException("Must roll before executing a move.");
@@ -112,13 +113,14 @@ public sealed class Game
             throw new InvalidOperationException("Game is over.");
 
         var validMoves = GetValidMoves();
-        if (!validMoves.Contains(move))
+        if (!validMoves.Any(m => m.From == move.From && m.To == move.To && m.Player == move.Player))
             throw new InvalidOperationException($"Invalid move: {move}");
 
         var player = move.Player;
         var rules = State.Rules;
         bool captured = false;
         bool borneOff = false;
+        int capturedPieceIndex = -1;
 
         // Move piece(s)
         var pieces = State.GetPiecesMutable(player);
@@ -127,20 +129,14 @@ public sealed class Game
             // Move ALL pieces at the from position (stack moves as one)
             for (int i = 0; i < pieces.Length; i++)
             {
-                if (pieces[i] == move.From)
-                    pieces[i] = move.To;
+                if (pieces[i].Position == move.From)
+                    pieces[i] = pieces[i] with { Position = move.To };
             }
         }
         else
         {
-            for (int i = 0; i < pieces.Length; i++)
-            {
-                if (pieces[i] == move.From)
-                {
-                    pieces[i] = move.To;
-                    break;
-                }
-            }
+            // Use move.PieceIndex for direct access
+            pieces[move.PieceIndex] = pieces[move.PieceIndex] with { Position = move.To };
         }
 
         // Check capture using CaptureMap
@@ -154,9 +150,10 @@ public sealed class Game
                 // Capture ALL opponent pieces at the mapped position
                 for (int i = 0; i < opponentPieces.Length; i++)
                 {
-                    if (opponentPieces[i] == opponentCapturePos)
+                    if (opponentPieces[i].Position == opponentCapturePos)
                     {
-                        opponentPieces[i] = -1;
+                        if (capturedPieceIndex < 0) capturedPieceIndex = i;
+                        opponentPieces[i] = opponentPieces[i] with { Position = -1 };
                         captured = true;
                     }
                 }
@@ -165,9 +162,10 @@ public sealed class Game
             {
                 for (int i = 0; i < opponentPieces.Length; i++)
                 {
-                    if (opponentPieces[i] == opponentCapturePos)
+                    if (opponentPieces[i].Position == opponentCapturePos)
                     {
-                        opponentPieces[i] = -1;
+                        capturedPieceIndex = i;
+                        opponentPieces[i] = opponentPieces[i] with { Position = -1 };
                         captured = true;
                         break;
                     }
@@ -183,7 +181,7 @@ public sealed class Game
             {
                 State.Winner = player;
                 _hasRolled = false;
-                return MoveResult.Win;
+                return new MoveOutcome(MoveResult.Win);
             }
         }
 
@@ -201,7 +199,7 @@ public sealed class Game
 
         _hasRolled = false;
 
-        return (captured, borneOff, extraTurn) switch
+        var result = (captured, borneOff, extraTurn) switch
         {
             (true, false, true) => MoveResult.CapturedAndExtraTurn,
             (true, false, false) => MoveResult.Captured,
@@ -210,6 +208,8 @@ public sealed class Game
             (false, false, true) => MoveResult.ExtraTurn,
             _ => MoveResult.Moved
         };
+
+        return new MoveOutcome(result, capturedPieceIndex);
     }
 
     public void ForfeitTurn()

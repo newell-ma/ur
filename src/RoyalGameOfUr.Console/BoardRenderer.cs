@@ -140,13 +140,13 @@ public static class BoardRenderer
         bool hasPlayerPiece = state.IsOccupiedBy(player, playerPos);
         bool hasOpponentPiece = state.IsOccupiedBy(player.Opponent(), opponentPos);
 
-        if (hasPlayerPiece && hasOpponentPiece)
-            return $"[!]"; // conflict (shouldn't happen with captures, but show it)
-        if (hasPlayerPiece)
-            return $"[{PlayerSymbol(player)}]";
-        if (hasOpponentPiece)
-            return $"[{PlayerSymbol(player.Opponent())}]";
-        return $"[{marker}]";
+        return (hasPlayerPiece, hasOpponentPiece) switch
+        {
+            (true, true) => "[!]",
+            (true, false) => $"[{PlayerSymbol(player)}]",
+            (false, true) => $"[{PlayerSymbol(player.Opponent())}]",
+            (false, false) => $"[{marker}]",
+        };
     }
 
     #endregion
@@ -176,22 +176,17 @@ public static class BoardRenderer
 
         bool p1 = state.IsOccupiedBy(Player.One, p1Pos);
         bool p2 = state.IsOccupiedBy(Player.Two, p2Pos);
+        int p1Count = p1 ? state.PieceCountAt(Player.One, p1Pos) : 0;
+        int p2Count = p2 ? state.PieceCountAt(Player.Two, p2Pos) : 0;
 
-        if (p1)
+        return (p1, p1Count, p2, p2Count) switch
         {
-            int count = state.PieceCountAt(Player.One, p1Pos);
-            if (count > 1)
-                return $"[{count}]";
-            return $"[{PlayerSymbol(Player.One)}]";
-        }
-        if (p2)
-        {
-            int count = state.PieceCountAt(Player.Two, p2Pos);
-            if (count > 1)
-                return $"[{count}]";
-            return $"[{PlayerSymbol(Player.Two)}]";
-        }
-        return $"[{marker}]";
+            (true, > 1, _, _) => $"[{p1Count}]",
+            (true, _, _, _) => $"[{PlayerSymbol(Player.One)}]",
+            (_, _, true, > 1) => $"[{p2Count}]",
+            (_, _, true, _) => $"[{PlayerSymbol(Player.Two)}]",
+            _ => $"[{marker}]",
+        };
     }
 
     #endregion

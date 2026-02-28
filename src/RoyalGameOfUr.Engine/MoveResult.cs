@@ -10,3 +10,8 @@ public enum MoveResult
     BorneOffAndExtraTurn,
     Win
 }
+
+public readonly record struct MoveOutcome(MoveResult Result, int CapturedPieceIndex = -1)
+{
+    public bool HasCapture => CapturedPieceIndex >= 0;
+}

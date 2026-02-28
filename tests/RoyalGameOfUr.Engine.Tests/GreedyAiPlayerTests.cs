@@ -20,8 +20,8 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, 13, 15), // bear off
-            new(Player.One, 12, 14), // rosette
+            new(Player.One, 0, 13, 15), // bear off (piece index 0)
+            new(Player.One, 1, 12, 14), // rosette (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
@@ -43,8 +43,8 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, 2, 4), // rosette at 4
-            new(Player.One, 5, 7), // plain move
+            new(Player.One, 0, 2, 4), // rosette at 4 (piece index 0)
+            new(Player.One, 1, 5, 7), // plain move (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
@@ -64,8 +64,8 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, 2, 4), // rosette
-            new(Player.One, 5, 7), // capture
+            new(Player.One, 0, 2, 4), // rosette (piece index 0)
+            new(Player.One, 1, 5, 7), // capture (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
@@ -88,8 +88,8 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, 5, 7), // capture
-            new(Player.One, 9, 11), // plain advance
+            new(Player.One, 0, 5, 7), // capture (piece index 0)
+            new(Player.One, 1, 9, 11), // plain advance (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
@@ -108,7 +108,7 @@ public class GreedyAiPlayerTests
             .WithCurrentPlayer(Player.One)
             .Build();
 
-        var moves = new List<Move> { new(Player.One, 3, 5) };
+        var moves = new List<Move> { new(Player.One, 0, 3, 5) };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
         await Assert.That(chosen).IsEqualTo(moves[0]);
@@ -126,9 +126,9 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, -1, 2),
-            new(Player.One, 5, 8),  // rosette at 8
-            new(Player.One, 10, 13),
+            new(Player.One, 0, -1, 2),
+            new(Player.One, 1, 5, 8),  // rosette at 8 (piece index 1)
+            new(Player.One, 2, 10, 13),
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 3);
@@ -150,8 +150,8 @@ public class GreedyAiPlayerTests
 
         var moves = new List<Move>
         {
-            new(Player.One, -1, 1),  // enter from start
-            new(Player.One, 5, 7),   // advance on-board piece
+            new(Player.One, 0, -1, 1),  // enter from start (piece index 0)
+            new(Player.One, 1, 5, 7),   // advance on-board piece (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);

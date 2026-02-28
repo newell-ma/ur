@@ -28,19 +28,18 @@ public sealed class GameStateBuilder
     public GameState Build()
     {
         // Fill remaining slots with -1 (at start)
-        int[] p1 = BuildPieceArray(_playerOnePieces);
-        int[] p2 = BuildPieceArray(_playerTwoPieces);
+        Piece[] p1 = BuildPieceArray(_playerOnePieces);
+        Piece[] p2 = BuildPieceArray(_playerTwoPieces);
         return new GameState(_rules, p1, p2, _currentPlayer);
     }
 
-    private int[] BuildPieceArray(List<int> explicitPieces)
+    private Piece[] BuildPieceArray(List<int> explicitPieces)
     {
-        int[] pieces = new int[_rules.PiecesPerPlayer];
-        Array.Fill(pieces, -1);
+        var pieces = new Piece[_rules.PiecesPerPlayer];
+        for (int i = 0; i < pieces.Length; i++)
+            pieces[i] = new Piece(i, -1);
         for (int i = 0; i < explicitPieces.Count && i < pieces.Length; i++)
-        {
-            pieces[i] = explicitPieces[i];
-        }
+            pieces[i] = new Piece(i, explicitPieces[i]);
         return pieces;
     }
 }

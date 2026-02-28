@@ -8,10 +8,10 @@ public sealed class GameState
     public int LastRoll { get; internal set; }
     public int EffectiveRoll { get; internal set; }
 
-    private readonly int[] _playerOnePieces;
-    private readonly int[] _playerTwoPieces;
+    private readonly Piece[] _playerOnePieces;
+    private readonly Piece[] _playerTwoPieces;
 
-    internal GameState(GameRules rules, int[] playerOnePieces, int[] playerTwoPieces, Player currentPlayer)
+    internal GameState(GameRules rules, Piece[] playerOnePieces, Piece[] playerTwoPieces, Player currentPlayer)
     {
         Rules = rules;
         _playerOnePieces = playerOnePieces;
@@ -22,18 +22,18 @@ public sealed class GameState
         EffectiveRoll = -1;
     }
 
-    public ReadOnlySpan<int> GetPieces(Player player) =>
+    public ReadOnlySpan<Piece> GetPieces(Player player) =>
         player == Player.One ? _playerOnePieces : _playerTwoPieces;
 
-    internal Span<int> GetPiecesMutable(Player player) =>
+    internal Span<Piece> GetPiecesMutable(Player player) =>
         player == Player.One ? _playerOnePieces : _playerTwoPieces;
 
     public int PiecesAtStart(Player player)
     {
         var pieces = GetPieces(player);
         int count = 0;
-        foreach (int p in pieces)
-            if (p == -1) count++;
+        foreach (var p in pieces)
+            if (p.Position == -1) count++;
         return count;
     }
 
@@ -41,8 +41,8 @@ public sealed class GameState
     {
         var pieces = GetPieces(player);
         int count = 0;
-        foreach (int p in pieces)
-            if (p == Rules.PathLength) count++;
+        foreach (var p in pieces)
+            if (p.Position == Rules.PathLength) count++;
         return count;
     }
 
@@ -50,16 +50,16 @@ public sealed class GameState
     {
         var pieces = GetPieces(player);
         int count = 0;
-        foreach (int p in pieces)
-            if (p >= 0 && p < Rules.PathLength) count++;
+        foreach (var p in pieces)
+            if (p.Position >= 0 && p.Position < Rules.PathLength) count++;
         return count;
     }
 
     public bool IsOccupiedBy(Player player, int position)
     {
         var pieces = GetPieces(player);
-        foreach (int p in pieces)
-            if (p == position) return true;
+        foreach (var p in pieces)
+            if (p.Position == position) return true;
         return false;
     }
 
@@ -67,10 +67,10 @@ public sealed class GameState
     {
         var pieces = GetPieces(player);
         int count = 0;
-        foreach (int p in pieces)
-            if (p == position) count++;
+        foreach (var p in pieces)
+            if (p.Position == position) count++;
         return count;
     }
 
-    public bool IsGameOver => Winner.HasValue;
+    public bool IsGameOver => Winner is not null;
 }

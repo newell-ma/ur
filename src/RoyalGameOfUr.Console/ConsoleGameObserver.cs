@@ -23,15 +23,15 @@ public sealed class ConsoleGameObserver : IGameObserver
     public void OnDiceRolled(Player player, int roll)
     {
         string name = PlayerName(player);
-        if (_rules.ZeroRollValue.HasValue && roll == 0)
-            System.Console.WriteLine($"{name} rolled: {roll} (moves {_rules.ZeroRollValue.Value})");
+        if (roll == 0 && _rules.ZeroRollValue is { } effectiveZero)
+            System.Console.WriteLine($"{name} rolled: {roll} (moves {effectiveZero})");
         else
             System.Console.WriteLine($"{name} rolled: {roll}");
     }
 
-    public void OnMoveMade(Move move, MoveResult result)
+    public void OnMoveMade(Move move, MoveOutcome outcome)
     {
-        string resultText = result switch
+        string resultText = outcome.Result switch
         {
             MoveResult.Moved => "",
             MoveResult.ExtraTurn => " -> Extra turn!",
@@ -42,7 +42,7 @@ public sealed class ConsoleGameObserver : IGameObserver
             MoveResult.Win => " -> WIN!",
             _ => ""
         };
-        System.Console.WriteLine($"  Move executed{resultText}");
+        System.Console.WriteLine($"  Piece #{move.PieceIndex} moved{resultText}");
     }
 
     public void OnTurnForfeited(Player player)

@@ -42,40 +42,36 @@ public sealed class GreedyAiPlayer : ISkipCapablePlayer
     {
         var rules = state.Rules;
 
-        // Backward moves — penalize
-        if (move.To < move.From)
-            return -100 + move.To;
-
-        // Bear off — highest priority
-        if (move.To == rules.PathLength)
-            return 1000;
-
-        // Land on rosette
-        if (rules.IsRosette(move.To))
+        return move switch
         {
-            int rosetteScore = 800;
-            if (!rules.RosetteExtraRoll) rosetteScore = 400;
-            if (!rules.SafeRosettes) rosetteScore -= 100;
-            return rosetteScore;
-        }
+            // Backward moves — penalize
+            { To: var to, From: var from } when to < from
+                => -100 + to,
 
-        // Capture opponent — use CaptureMap
-        if (rules.IsSharedLane(move.To))
-        {
-            int opponentPos = rules.GetOpponentCapturePosition(move.To);
-            if (state.IsOccupiedBy(move.Player.Opponent(), opponentPos))
-            {
-                int captureScore = 600;
-                if (rules.CaptureExtraRoll) captureScore = 750;
-                return captureScore;
-            }
-        }
+            // Bear off — highest priority
+            { To: var to } when to == rules.PathLength
+                => 1000,
 
-        // Advance furthest piece — prefer pieces closer to bear-off
-        if (move.From >= 0)
-            return 200 + move.To;
+            // Land on rosette
+            { To: var to } when rules.IsRosette(to)
+                => (rules.RosetteExtraRoll, rules.SafeRosettes) switch
+                {
+                    (true, true) => 800,
+                    (true, false) => 700,
+                    (false, true) => 400,
+                    (false, false) => 300,
+                },
 
-        // Enter from start — get pieces on the board
-        return 100;
+            // Capture opponent — use CaptureMap
+            { To: var to, Player: var player } when rules.IsSharedLane(to)
+                && state.IsOccupiedBy(player.Opponent(), rules.GetOpponentCapturePosition(to))
+                => rules.CaptureExtraRoll ? 750 : 600,
+
+            // Advance furthest piece — prefer pieces closer to bear-off
+            { From: >= 0 } => 200 + move.To,
+
+            // Enter from start — get pieces on the board
+            _ => 100
+        };
     }
 }
