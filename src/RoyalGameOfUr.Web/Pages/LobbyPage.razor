@@ -33,7 +33,7 @@
 
             <div class="lobby-section">
                 <h3>Join a Room</h3>
-                <input type="text" @bind="_joinCode" maxlength="4" placeholder="Room code"
+                <input type="text" @bind="_joinCode" maxlength="4" placeholder="ROOM CODE"
                        style="text-transform: uppercase; width: 6em; text-align: center; font-size: 1.2rem;" />
                 <button class="btn btn-primary" @onclick="JoinRoom"
                         disabled="@(string.IsNullOrWhiteSpace(_playerName) || string.IsNullOrWhiteSpace(_joinCode))">
