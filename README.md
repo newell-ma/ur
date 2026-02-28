@@ -9,7 +9,7 @@ A C# implementation of the [Royal Game of Ur](https://en.wikipedia.org/wiki/Roya
 │   ├── RoyalGameOfUr.Engine/       # Core game logic (class library)
 │   └── RoyalGameOfUr.Console/      # Console host (two-player hot-seat)
 └── tests/
-    └── RoyalGameOfUr.Engine.Tests/  # TUnit tests (58 tests)
+    └── RoyalGameOfUr.Engine.Tests/  # TUnit tests (65 tests)
 ```
 
 ## Getting Started
@@ -23,8 +23,11 @@ dotnet build RoyalGameOfUr.slnx
 # Run tests
 dotnet run --project tests/RoyalGameOfUr.Engine.Tests/RoyalGameOfUr.Engine.Tests.csproj
 
-# Play
+# Play (two-player hot-seat)
 dotnet run --project src/RoyalGameOfUr.Console/RoyalGameOfUr.Console.csproj
+
+# Demo mode (AI vs AI)
+dotnet run --project src/RoyalGameOfUr.Console/RoyalGameOfUr.Console.csproj -- --demo
 ```
 
 ## How to Play
@@ -89,11 +92,11 @@ var rules = new GameRules(
 
 ## Tests
 
-58 TUnit tests covering dice, rules, move generation, move execution, captures, rosettes, bear-off, forfeits, and full integration scenarios.
+65 TUnit tests covering dice, rules, move generation, move execution, captures, rosettes, bear-off, forfeits, AI player, and full integration scenarios.
 
 ```
 Test run summary: Passed!
-  total: 58
+  total: 65
   failed: 0
-  succeeded: 58
+  succeeded: 65
 ```
