@@ -12,4 +12,5 @@ public interface IRoomService
     bool TrySubmitMove(string code, string connectionId, Move move);
     bool TrySubmitSkipDecision(string code, string connectionId, bool skip);
     GameRoom? GetRoom(string code);
+    Task HandleDisconnect(string connectionId);
 }

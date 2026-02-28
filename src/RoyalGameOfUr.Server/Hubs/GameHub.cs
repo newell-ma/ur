@@ -50,6 +50,7 @@ public sealed class GameHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
+        await _roomService.HandleDisconnect(Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 }

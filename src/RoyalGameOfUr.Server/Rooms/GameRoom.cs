@@ -5,6 +5,7 @@ namespace RoyalGameOfUr.Server.Rooms;
 
 public sealed class GameRoom : IGameObserver
 {
+    private readonly object _joinLock = new();
     private CancellationTokenSource? _cts;
     private IGameBroadcaster? _broadcaster;
 
@@ -14,6 +15,7 @@ public sealed class GameRoom : IGameObserver
     public SignalRPlayer? Player2 { get; private set; }
     public bool IsStarted { get; private set; }
     public bool IsFinished { get; private set; }
+    public Action<string>? OnGameCompleted { get; set; }
 
     public GameRoom(string code, string rulesName, string hostName, string hostConnectionId)
     {
@@ -26,9 +28,12 @@ public sealed class GameRoom : IGameObserver
 
     public bool TryJoin(string guestName, string connectionId)
     {
-        if (Player2 is not null || IsStarted) return false;
-        Player2 = new SignalRPlayer(guestName, connectionId);
-        return true;
+        lock (_joinLock)
+        {
+            if (Player2 is not null || IsStarted) return false;
+            Player2 = new SignalRPlayer(guestName, connectionId);
+            return true;
+        }
     }
 
     public Player? GetPlayerSide(string connectionId)
@@ -60,30 +65,39 @@ public sealed class GameRoom : IGameObserver
         Player2.OnSkipRequired = (moves, roll) =>
             _broadcaster.SendToPlayer(Player2.ConnectionId, "ReceiveSkipRequired", moves.ToArray(), roll);
 
+        // Wire timeout notifications — when a player is slow, notify the opponent
+        Player1.OnMoveTimedOut = () =>
+            _broadcaster.SendToPlayer(Player2.ConnectionId, "ReceiveOpponentSlow", Player1.Name);
+        Player2.OnMoveTimedOut = () =>
+            _broadcaster.SendToPlayer(Player1.ConnectionId, "ReceiveOpponentSlow", Player2.Name);
+
         var rules = GameStateMapper.ResolveRules(RulesName);
         var dice = new Dice(null, rules.DiceCount);
         var game = new Game(dice, rules);
         var runner = new GameRunner(game, Player1, Player2, this);
+        var cts = _cts;
 
         _ = Task.Run(async () =>
         {
             try
             {
-                await runner.RunAsync(_cts.Token);
+                await runner.RunAsync(cts.Token);
             }
             catch (OperationCanceledException)
             {
-                // Game was stopped
+                // Game was stopped (disconnect)
             }
             catch (Exception ex)
             {
-                await _broadcaster.BroadcastError(GroupName, ex.Message);
+                if (_broadcaster is not null)
+                    await _broadcaster.BroadcastError(GroupName, ex.Message);
             }
             finally
             {
                 IsFinished = true;
+                OnGameCompleted?.Invoke(Code);
             }
-        }, _cts.Token);
+        }, CancellationToken.None);
     }
 
     public void Stop()

@@ -116,4 +116,87 @@ public class SignalRPlayerTests
         await Assert.That(async () => await task).ThrowsException()
             .WithMessageMatching("*cancel*");
     }
+
+    [Test]
+    public async Task ChooseMoveAsync_TimesOut_FiresCallback()
+    {
+        var timedOut = false;
+        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromMilliseconds(50) };
+        player.OnMoveTimedOut = () => timedOut = true;
+        var state = CreateDummyState();
+        var moves = new[] { new Move(Player.One, 0, -1, 2) };
+
+        var task = player.ChooseMoveAsync(state, moves, 2);
+        await Task.Delay(200);
+
+        await Assert.That(timedOut).IsTrue();
+        // Game still awaits — player can still submit
+        await Assert.That(player.IsAwaitingMove).IsTrue();
+
+        player.TrySubmitMove(moves[0]);
+        await task;
+    }
+
+    [Test]
+    public async Task ShouldSkipAsync_TimesOut_FiresCallback()
+    {
+        var timedOut = false;
+        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromMilliseconds(50) };
+        player.OnMoveTimedOut = () => timedOut = true;
+        var state = CreateDummyState();
+        var moves = new[] { new Move(Player.One, 0, -1, 2) };
+
+        var task = player.ShouldSkipAsync(state, moves, 2);
+        await Task.Delay(200);
+
+        await Assert.That(timedOut).IsTrue();
+        await Assert.That(player.IsAwaitingSkip).IsTrue();
+
+        player.TrySubmitSkipDecision(false);
+        await task;
+    }
+
+    [Test]
+    public async Task ChooseMoveAsync_MoveSubmittedBeforeTimeout_Succeeds()
+    {
+        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromSeconds(5) };
+        var state = CreateDummyState();
+        var move = new Move(Player.One, 0, -1, 2);
+
+        var task = player.ChooseMoveAsync(state, [move], 2);
+        player.TrySubmitMove(move);
+
+        var result = await task;
+        await Assert.That(result).IsEqualTo(move);
+    }
+
+    [Test]
+    public async Task ShouldSkipAsync_SkipSubmittedBeforeTimeout_Succeeds()
+    {
+        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromSeconds(5) };
+        var state = CreateDummyState();
+        var moves = new[] { new Move(Player.One, 0, -1, 2) };
+
+        var task = player.ShouldSkipAsync(state, moves, 2);
+        player.TrySubmitSkipDecision(true);
+
+        var result = await task;
+        await Assert.That(result).IsTrue();
+    }
+
+    [Test]
+    public async Task Cancel_WhileTimerActive_CancelsImmediately()
+    {
+        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromSeconds(30) };
+        var state = CreateDummyState();
+        var moves = new[] { new Move(Player.One, 0, -1, 2) };
+
+        var task = player.ChooseMoveAsync(state, moves, 2);
+
+        // Cancel immediately — should not wait for timeout
+        player.Cancel();
+
+        await Assert.That(async () => await task).ThrowsException()
+            .WithMessageMatching("*cancel*");
+    }
 }

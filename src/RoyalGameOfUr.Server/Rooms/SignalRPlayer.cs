@@ -6,10 +6,12 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
 {
     private TaskCompletionSource<Move>? _moveTcs;
     private TaskCompletionSource<bool>? _skipTcs;
+    private CancellationTokenSource? _timeoutCts;
 
     public string Name { get; }
     public string ConnectionId { get; set; }
     public IReadOnlyList<Move> PendingMoves { get; private set; } = [];
+    public TimeSpan MoveTimeout { get; set; } = TimeSpan.FromSeconds(60);
 
     /// <summary>
     /// Called when the player needs to choose a move. GameRoom wires this to send SignalR message.
@@ -21,6 +23,11 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     /// </summary>
     public Func<IReadOnlyList<Move>, int, Task>? OnSkipRequired { get; set; }
 
+    /// <summary>
+    /// Called when the move/skip timer expires. GameRoom wires this to notify the opponent.
+    /// </summary>
+    public Action? OnMoveTimedOut { get; set; }
+
     public SignalRPlayer(string name, string connectionId)
     {
         Name = name;
@@ -31,28 +38,46 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     {
         PendingMoves = validMoves;
         _moveTcs = new TaskCompletionSource<Move>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _timeoutCts = new CancellationTokenSource(MoveTimeout);
+        _timeoutCts.Token.Register(() => OnMoveTimedOut?.Invoke());
 
         if (OnMoveRequired is not null)
             await OnMoveRequired(validMoves, roll);
 
-        var move = await _moveTcs.Task;
-        _moveTcs = null;
-        PendingMoves = [];
-        return move;
+        try
+        {
+            return await _moveTcs.Task;
+        }
+        finally
+        {
+            _timeoutCts.Dispose();
+            _timeoutCts = null;
+            _moveTcs = null;
+            PendingMoves = [];
+        }
     }
 
     public async Task<bool> ShouldSkipAsync(GameState state, IReadOnlyList<Move> validMoves, int roll)
     {
         PendingMoves = validMoves;
         _skipTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _timeoutCts = new CancellationTokenSource(MoveTimeout);
+        _timeoutCts.Token.Register(() => OnMoveTimedOut?.Invoke());
 
         if (OnSkipRequired is not null)
             await OnSkipRequired(validMoves, roll);
 
-        var result = await _skipTcs.Task;
-        _skipTcs = null;
-        PendingMoves = [];
-        return result;
+        try
+        {
+            return await _skipTcs.Task;
+        }
+        finally
+        {
+            _timeoutCts.Dispose();
+            _timeoutCts = null;
+            _skipTcs = null;
+            PendingMoves = [];
+        }
     }
 
     public bool TrySubmitMove(Move move)
@@ -72,6 +97,7 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
 
     public void Cancel()
     {
+        _timeoutCts?.Cancel();
         _moveTcs?.TrySetCanceled();
         _skipTcs?.TrySetCanceled();
     }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Server.Hubs;
 using RoyalGameOfUr.Server.Rooms;
@@ -8,6 +9,7 @@ public sealed class RoomService : IRoomService
 {
     private readonly RoomManager _roomManager;
     private readonly IGameBroadcaster _broadcaster;
+    private readonly ConcurrentDictionary<string, string> _connectionToRoom = new();
 
     public RoomService(RoomManager roomManager, IGameBroadcaster broadcaster)
     {
@@ -18,6 +20,7 @@ public sealed class RoomService : IRoomService
     public CreateRoomResult CreateRoom(string rulesName, string playerName, string connectionId)
     {
         var room = _roomManager.CreateRoom(rulesName, playerName, connectionId);
+        _connectionToRoom[connectionId] = room.Code;
         return new CreateRoomResult(room.Code, room.RulesName);
     }
 
@@ -29,6 +32,8 @@ public sealed class RoomService : IRoomService
 
         if (!room.TryJoin(playerName, connectionId))
             return new JoinRoomResult(false, "Room is full or game already started", code, room.RulesName, "");
+
+        _connectionToRoom[connectionId] = room.Code;
 
         // Notify the host that the guest has joined
         if (room.Player1 is not null)
@@ -49,6 +54,7 @@ public sealed class RoomService : IRoomService
         await _broadcaster.BroadcastGameStarting(room.GroupName,
             room.Player1.Name, room.Player2.Name, room.RulesName);
 
+        room.OnGameCompleted = OnRoomGameCompleted;
         room.Start(_broadcaster);
         return true;
     }
@@ -82,4 +88,47 @@ public sealed class RoomService : IRoomService
     }
 
     public GameRoom? GetRoom(string code) => _roomManager.GetRoom(code);
+
+    public async Task HandleDisconnect(string connectionId)
+    {
+        if (!_connectionToRoom.TryRemove(connectionId, out var roomCode))
+            return;
+
+        var room = _roomManager.GetRoom(roomCode);
+        if (room is null) return;
+
+        room.Stop();
+
+        // Find the opponent and notify them
+        var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
+        if (opponentConnectionId is not null)
+        {
+            await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
+            _connectionToRoom.TryRemove(opponentConnectionId, out _);
+        }
+
+        _roomManager.RemoveRoom(roomCode);
+    }
+
+    private void OnRoomGameCompleted(string roomCode)
+    {
+        var room = _roomManager.GetRoom(roomCode);
+        _roomManager.RemoveRoom(roomCode);
+
+        if (room is null) return;
+
+        if (room.Player1 is not null)
+            _connectionToRoom.TryRemove(room.Player1.ConnectionId, out _);
+        if (room.Player2 is not null)
+            _connectionToRoom.TryRemove(room.Player2.ConnectionId, out _);
+    }
+
+    private static string? GetOpponentConnectionId(GameRoom room, string disconnectedConnectionId)
+    {
+        if (room.Player1?.ConnectionId == disconnectedConnectionId)
+            return room.Player2?.ConnectionId;
+        if (room.Player2?.ConnectionId == disconnectedConnectionId)
+            return room.Player1?.ConnectionId;
+        return null;
+    }
 }

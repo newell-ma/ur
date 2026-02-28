@@ -147,4 +147,136 @@ public class RoomServiceTests
 
         room.Stop();
     }
+
+    // --- Disconnect tests ---
+
+    [Test]
+    public async Task HandleDisconnect_UnknownConnection_DoesNothing()
+    {
+        // Should not throw
+        await _service.HandleDisconnect("unknown-conn");
+    }
+
+    [Test]
+    public async Task HandleDisconnect_HostDisconnects_NotifiesGuest()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        await _service.HandleDisconnect("conn1");
+
+        await _broadcaster.Received().SendToPlayer(
+            "conn2",
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+    }
+
+    [Test]
+    public async Task HandleDisconnect_GuestDisconnects_NotifiesHost()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        await _service.HandleDisconnect("conn2");
+
+        await _broadcaster.Received().SendToPlayer(
+            "conn1",
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+    }
+
+    [Test]
+    public async Task HandleDisconnect_RemovesRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        await _service.HandleDisconnect("conn1");
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task HandleDisconnect_BeforeGameStarts_RemovesRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+
+        await _service.HandleDisconnect("conn1");
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task HandleDisconnect_HostLeavesEmptyRoom_RemovesRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+
+        await _service.HandleDisconnect("conn1");
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task HandleDisconnect_BothDisconnect_SafeForSecondCall()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        await _service.HandleDisconnect("conn1");
+        // Second disconnect should not throw
+        await _service.HandleDisconnect("conn2");
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task GameCompletion_RemovesRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        await Task.Delay(100);
+
+        // Stop triggers cancellation → OnGameCompleted fires from finally block
+        room.Stop();
+        await Task.Delay(200);
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task GameCompletion_RemovesConnectionMappings()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        await Task.Delay(100);
+
+        room.Stop();
+        await Task.Delay(200);
+
+        // After game completion, disconnect should be a no-op (mapping already removed)
+        _broadcaster.ClearReceivedCalls();
+        await _service.HandleDisconnect("conn1");
+        await _service.HandleDisconnect("conn2");
+
+        // No opponent-disconnected notifications should be sent since mappings were already cleaned up
+        await _broadcaster.DidNotReceive().SendToPlayer(
+            Arg.Any<string>(),
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+    }
 }
