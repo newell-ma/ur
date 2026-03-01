@@ -5,41 +5,45 @@ using RoyalGameOfUr.Engine.Dtos;
 
 namespace RoyalGameOfUr.Web.Services;
 
-public sealed class OnlineGameService : IAsyncDisposable
+public sealed class OnlineGameService : IAsyncDisposable, IDisposable
 {
     private readonly NavigationManager _nav;
     private HubConnection? _hub;
 
     // Room state
-    public string? RoomCode { get; private set; }
-    public string? RulesName { get; private set; }
-    public bool IsHost { get; private set; }
-    public bool OpponentJoined { get; private set; }
-    public string? OpponentName { get; private set; }
-    public string? ErrorMessage { get; private set; }
+    public string? RoomCode { get; internal set; }
+    public string? RulesName { get; internal set; }
+    public bool IsHost { get; internal set; }
+    public bool OpponentJoined { get; internal set; }
+    public string? OpponentName { get; internal set; }
+    public string? ErrorMessage { get; internal set; }
 
     // Game state (mirrors GameService surface)
-    public GameState? State { get; private set; }
-    public GameRules? Rules { get; private set; }
-    public int LastRollDisplay { get; private set; }
-    public int EffectiveRollDisplay { get; private set; }
-    public IReadOnlyList<Move> ValidMoves { get; private set; } = [];
-    public bool IsAwaitingMove { get; private set; }
-    public bool IsAwaitingSkip { get; private set; }
-    public Player? Winner { get; private set; }
-    public bool IsRunning { get; private set; }
-    public string? StatusMessage { get; private set; }
-    public Move? LastMove { get; private set; }
-    public MoveOutcome? LastOutcome { get; private set; }
-    public string Player1Name { get; private set; } = "Player 1";
-    public string Player2Name { get; private set; } = "Player 2";
-    public Player? LocalPlayer { get; private set; }
-    public string LocalPlayerName { get; private set; } = "";
+    public GameState? State { get; internal set; }
+    public GameRules? Rules { get; internal set; }
+    public int LastRollDisplay { get; internal set; }
+    public int EffectiveRollDisplay { get; internal set; }
+    public IReadOnlyList<Move> ValidMoves { get; internal set; } = [];
+    public bool IsAwaitingMove { get; internal set; }
+    public bool IsAwaitingSkip { get; internal set; }
+    public Player? Winner { get; internal set; }
+    public bool IsRunning { get; internal set; }
+    public string? StatusMessage { get; internal set; }
+    public Move? LastMove { get; internal set; }
+    public MoveOutcome? LastOutcome { get; internal set; }
+    public string Player1Name { get; internal set; } = "Player 1";
+    public string Player2Name { get; internal set; } = "Player 2";
+    public Player? LocalPlayer { get; internal set; }
+    public string LocalPlayerName { get; internal set; } = "";
     public bool IsMyTurn => State is not null && !State.IsGameOver && LocalPlayer == State.CurrentPlayer;
 
     // Dice display
-    public bool DiceRolled { get; private set; }
-    public int[]? IndividualDice { get; private set; }
+    public bool DiceRolled { get; internal set; }
+    public int[]? IndividualDice { get; internal set; }
+
+    // Disconnect / timeout state
+    public bool OpponentDisconnected { get; internal set; }
+    public bool OpponentSlow { get; internal set; }
 
     // Events for UI notification
     public event Func<Task>? OnStateChanged;
@@ -111,6 +115,7 @@ public sealed class OnlineGameService : IAsyncDisposable
             LastOutcome = outcome;
             IsAwaitingMove = false;
             ValidMoves = [];
+            OpponentSlow = false;
             var playerName = move.Player == Player.One ? Player1Name : Player2Name;
             StatusMessage = outcome.Result switch
             {
@@ -175,6 +180,23 @@ public sealed class OnlineGameService : IAsyncDisposable
         _hub.On<string>("ReceiveError", async (message) =>
         {
             ErrorMessage = message;
+            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+        });
+
+        _hub.On<string>("ReceiveOpponentSlow", async (_) =>
+        {
+            OpponentSlow = true;
+            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+        });
+
+        _hub.On("ReceiveOpponentDisconnected", async () =>
+        {
+            OpponentDisconnected = true;
+            IsRunning = false;
+            IsAwaitingMove = false;
+            IsAwaitingSkip = false;
+            ValidMoves = [];
+            StatusMessage = "Opponent disconnected";
             if (OnStateChanged is not null) await OnStateChanged.Invoke();
         });
     }
@@ -259,6 +281,8 @@ public sealed class OnlineGameService : IAsyncDisposable
         DiceRolled = false;
         IndividualDice = null;
         LocalPlayer = null;
+        OpponentDisconnected = false;
+        OpponentSlow = false;
     }
 
     private static int[] GenerateIndividualDice(int total, int count)
@@ -269,6 +293,11 @@ public sealed class OnlineGameService : IAsyncDisposable
         for (int i = 0; i < Math.Min(total, count); i++)
             results[indices[i]] = 1;
         return results;
+    }
+
+    public void Dispose()
+    {
+        _hub?.DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 
     public async ValueTask DisposeAsync()

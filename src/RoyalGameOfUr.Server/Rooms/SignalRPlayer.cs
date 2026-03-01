@@ -11,7 +11,7 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     public string Name { get; }
     public string ConnectionId { get; set; }
     public IReadOnlyList<Move> PendingMoves { get; private set; } = [];
-    public TimeSpan MoveTimeout { get; set; } = TimeSpan.FromSeconds(60);
+    public TimeSpan MoveTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
     /// <summary>
     /// Called when the player needs to choose a move. GameRoom wires this to send SignalR message.
