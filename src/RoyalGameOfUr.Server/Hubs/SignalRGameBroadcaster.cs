@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Engine.Dtos;
 using RoyalGameOfUr.Server.Rooms;
@@ -8,10 +9,12 @@ namespace RoyalGameOfUr.Server.Hubs;
 public sealed class SignalRGameBroadcaster : IGameBroadcaster
 {
     private readonly IHubContext<GameHub> _hubContext;
+    private readonly ILogger<SignalRGameBroadcaster> _logger;
 
-    public SignalRGameBroadcaster(IHubContext<GameHub> hubContext)
+    public SignalRGameBroadcaster(IHubContext<GameHub> hubContext, ILogger<SignalRGameBroadcaster> logger)
     {
         _hubContext = hubContext;
+        _logger = logger;
     }
 
     public Task BroadcastStateChanged(string groupName, GameStateDto state) =>
@@ -35,6 +38,15 @@ public sealed class SignalRGameBroadcaster : IGameBroadcaster
     public Task BroadcastGameStarting(string groupName, string player1Name, string player2Name, string rulesName) =>
         _hubContext.Clients.Group(groupName).SendCoreAsync("ReceiveGameStarting", [player1Name, player2Name, rulesName]);
 
-    public Task SendToPlayer(string connectionId, string method, params object?[] args) =>
-        _hubContext.Clients.Client(connectionId).SendCoreAsync(method, args);
+    public async Task SendToPlayer(string connectionId, string method, params object?[] args)
+    {
+        try
+        {
+            await _hubContext.Clients.Client(connectionId).SendCoreAsync(method, args);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send '{Method}' to connection {ConnectionId}", method, connectionId);
+        }
+    }
 }

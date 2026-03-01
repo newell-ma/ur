@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Server.Rooms;
 using RoyalGameOfUr.Server.Services;
@@ -9,11 +11,12 @@ public class RoomServiceTests
 {
     private readonly RoomManager _roomManager = new();
     private readonly IGameBroadcaster _broadcaster = Substitute.For<IGameBroadcaster>();
+    private readonly ILogger<RoomService> _logger = Substitute.For<ILogger<RoomService>>();
     private readonly RoomService _service;
 
     public RoomServiceTests()
     {
-        _service = new RoomService(_roomManager, _broadcaster);
+        _service = new RoomService(_roomManager, _broadcaster, _logger);
     }
 
     [Test]
@@ -417,5 +420,31 @@ public class RoomServiceTests
             Arg.Any<string>(),
             "ReceiveOpponentDisconnected",
             Arg.Any<object?[]>());
+    }
+
+    [Test]
+    public async Task GracePeriodExpired_SendFails_StillCleansUpRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        room.GracePeriod = TimeSpan.FromMilliseconds(100);
+        await Task.Delay(100);
+
+        // Disconnect first (sends ReceiveOpponentReconnecting successfully)
+        await _service.HandleDisconnect("conn1");
+
+        // Now configure broadcaster to throw on future SendToPlayer calls
+        // (simulates conn2 dying before grace period expires)
+        _broadcaster.SendToPlayer(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<object?[]>())
+            .ThrowsAsync(new InvalidOperationException("Connection is dead"));
+
+        // Wait for grace period to expire
+        await Task.Delay(300);
+
+        // Room should still be cleaned up despite the send failure
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
     }
 }

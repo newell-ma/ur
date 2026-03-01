@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.Extensions.Logging;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Server.Hubs;
 using RoyalGameOfUr.Server.Rooms;
@@ -9,15 +10,17 @@ public sealed class RoomService : IRoomService
 {
     private readonly RoomManager _roomManager;
     private readonly IGameBroadcaster _broadcaster;
+    private readonly ILogger<RoomService> _logger;
     private readonly ConcurrentDictionary<string, string> _connectionToRoom = new();
     private readonly ConcurrentDictionary<string, string> _tokenToRoom = new();
 
     private const int MaxNameLength = 20;
 
-    public RoomService(RoomManager roomManager, IGameBroadcaster broadcaster)
+    public RoomService(RoomManager roomManager, IGameBroadcaster broadcaster, ILogger<RoomService> logger)
     {
         _roomManager = roomManager;
         _broadcaster = broadcaster;
+        _logger = logger;
     }
 
     private static string? ValidatePlayerName(ref string name)
@@ -194,20 +197,27 @@ public sealed class RoomService : IRoomService
 
     private async void OnGracePeriodExpired(string roomCode, string connectionId)
     {
-        var room = _roomManager.GetRoom(roomCode);
-        if (room is null) return;
-
-        room.Stop();
-
-        var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
-        if (opponentConnectionId is not null)
+        try
         {
-            await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
-            _connectionToRoom.TryRemove(opponentConnectionId, out _);
-        }
+            var room = _roomManager.GetRoom(roomCode);
+            if (room is null) return;
 
-        CleanupTokens(room);
-        _roomManager.RemoveRoom(roomCode);
+            room.Stop();
+
+            var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
+            if (opponentConnectionId is not null)
+            {
+                await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
+                _connectionToRoom.TryRemove(opponentConnectionId, out _);
+            }
+
+            CleanupTokens(room);
+            _roomManager.RemoveRoom(roomCode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in grace period expiry for room {RoomCode}", roomCode);
+        }
     }
 
     private void OnRoomGameCompleted(string roomCode)
