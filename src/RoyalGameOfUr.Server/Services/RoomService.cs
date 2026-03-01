@@ -10,6 +10,7 @@ public sealed class RoomService : IRoomService
     private readonly RoomManager _roomManager;
     private readonly IGameBroadcaster _broadcaster;
     private readonly ConcurrentDictionary<string, string> _connectionToRoom = new();
+    private readonly ConcurrentDictionary<string, string> _tokenToRoom = new();
 
     public RoomService(RoomManager roomManager, IGameBroadcaster broadcaster)
     {
@@ -21,25 +22,27 @@ public sealed class RoomService : IRoomService
     {
         var room = _roomManager.CreateRoom(rulesName, playerName, connectionId);
         _connectionToRoom[connectionId] = room.Code;
-        return new CreateRoomResult(room.Code, room.RulesName);
+        _tokenToRoom[room.Player1Token!] = room.Code;
+        return new CreateRoomResult(room.Code, room.RulesName, room.Player1Token!);
     }
 
     public async Task<JoinRoomResult> JoinRoom(string code, string playerName, string connectionId)
     {
         var room = _roomManager.GetRoom(code);
         if (room is null)
-            return new JoinRoomResult(false, "Room not found", code, "", "");
+            return new JoinRoomResult(false, "Room not found", code, "", "", "");
 
         if (!room.TryJoin(playerName, connectionId))
-            return new JoinRoomResult(false, "Room is full or game already started", code, room.RulesName, "");
+            return new JoinRoomResult(false, "Room is full or game already started", code, room.RulesName, "", "");
 
         _connectionToRoom[connectionId] = room.Code;
+        _tokenToRoom[room.Player2Token!] = room.Code;
 
         // Notify the host that the guest has joined
         if (room.Player1 is not null)
             await _broadcaster.SendToPlayer(room.Player1.ConnectionId, "ReceiveOpponentJoined", playerName);
 
-        return new JoinRoomResult(true, "", room.Code, room.RulesName, room.Player1?.Name ?? "");
+        return new JoinRoomResult(true, "", room.Code, room.RulesName, room.Player1?.Name ?? "", room.Player2Token!);
     }
 
     public async Task<bool> TryStartGame(string code, string hostConnectionId)
@@ -97,9 +100,87 @@ public sealed class RoomService : IRoomService
         var room = _roomManager.GetRoom(roomCode);
         if (room is null) return;
 
+        // If game hasn't started (lobby phase), do immediate teardown
+        if (!room.IsStarted)
+        {
+            room.Stop();
+            var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
+            if (opponentConnectionId is not null)
+            {
+                await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
+                _connectionToRoom.TryRemove(opponentConnectionId, out _);
+            }
+            CleanupTokens(room);
+            _roomManager.RemoveRoom(roomCode);
+            return;
+        }
+
+        // Game is in progress — start grace period instead of immediate teardown
+        var opponent = GetOpponentConnectionId(room, connectionId);
+        if (opponent is not null)
+            await _broadcaster.SendToPlayer(opponent, "ReceiveOpponentReconnecting");
+
+        room.OnGracePeriodExpired = OnGracePeriodExpired;
+        room.StartGracePeriod(connectionId);
+    }
+
+    public async Task<RejoinResult> HandleRejoin(string sessionToken, string newConnectionId)
+    {
+        if (!_tokenToRoom.TryGetValue(sessionToken, out var roomCode))
+            return new RejoinResult(false, "Invalid session token", "", "", "", "", "");
+
+        var room = _roomManager.GetRoom(roomCode);
+        if (room is null || room.IsFinished)
+            return new RejoinResult(false, "Room no longer exists", "", "", "", "", "");
+
+        var match = room.GetPlayerByToken(sessionToken);
+        if (match is null)
+            return new RejoinResult(false, "Player not found in room", "", "", "", "", "");
+
+        var (player, side) = match.Value;
+        var oldConnectionId = player.ConnectionId;
+
+        // Swap the connection ID
+        player.ConnectionId = newConnectionId;
+        _connectionToRoom[newConnectionId] = roomCode;
+
+        // Cancel grace period
+        room.CancelGracePeriod(oldConnectionId);
+
+        // Notify opponent that player reconnected
+        var opponentConnectionId = GetOpponentConnectionId(room, newConnectionId);
+        if (opponentConnectionId is not null)
+            await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentReconnected");
+
+        // Re-send game state to reconnected player
+        var p1Name = room.Player1?.Name ?? "";
+        var p2Name = room.Player2?.Name ?? "";
+        await _broadcaster.SendToPlayer(newConnectionId, "ReceiveGameStarting", p1Name, p2Name, room.RulesName);
+
+        if (room.LastStateDto is not null)
+            await _broadcaster.SendToPlayer(newConnectionId, "ReceiveStateChanged", room.LastStateDto);
+
+        // If it's their turn and awaiting input, re-send the request
+        var signalRPlayer = room.GetSignalRPlayer(side);
+        if (signalRPlayer is not null)
+        {
+            if (signalRPlayer.IsAwaitingMove && signalRPlayer.PendingMoves.Count > 0)
+                await _broadcaster.SendToPlayer(newConnectionId, "ReceiveMoveRequired", signalRPlayer.PendingMoves.ToArray(), 0);
+            else if (signalRPlayer.IsAwaitingSkip && signalRPlayer.PendingMoves.Count > 0)
+                await _broadcaster.SendToPlayer(newConnectionId, "ReceiveSkipRequired", signalRPlayer.PendingMoves.ToArray(), 0);
+        }
+
+        var sideStr = side == Player.One ? "One" : "Two";
+        return new RejoinResult(true, "", roomCode, room.RulesName, p1Name, p2Name, sideStr);
+    }
+
+    private async void OnGracePeriodExpired(string roomCode, string connectionId)
+    {
+        var room = _roomManager.GetRoom(roomCode);
+        if (room is null) return;
+
         room.Stop();
 
-        // Find the opponent and notify them
         var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
         if (opponentConnectionId is not null)
         {
@@ -107,6 +188,7 @@ public sealed class RoomService : IRoomService
             _connectionToRoom.TryRemove(opponentConnectionId, out _);
         }
 
+        CleanupTokens(room);
         _roomManager.RemoveRoom(roomCode);
     }
 
@@ -121,6 +203,15 @@ public sealed class RoomService : IRoomService
             _connectionToRoom.TryRemove(room.Player1.ConnectionId, out _);
         if (room.Player2 is not null)
             _connectionToRoom.TryRemove(room.Player2.ConnectionId, out _);
+        CleanupTokens(room);
+    }
+
+    private void CleanupTokens(GameRoom room)
+    {
+        if (room.Player1Token is not null)
+            _tokenToRoom.TryRemove(room.Player1Token, out _);
+        if (room.Player2Token is not null)
+            _tokenToRoom.TryRemove(room.Player2Token, out _);
     }
 
     private static string? GetOpponentConnectionId(GameRoom room, string disconnectedConnectionId)

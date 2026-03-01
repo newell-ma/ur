@@ -43,8 +43,16 @@
     </div>
 }
 
+@* Opponent reconnecting notification *@
+@if (Online.OpponentReconnecting && !Online.OpponentDisconnected)
+{
+    <div class="reconnecting-banner">
+        <span>Opponent reconnecting...</span>
+    </div>
+}
+
 @* Opponent slow notification *@
-@if (Online.OpponentSlow && !Online.OpponentDisconnected)
+@if (Online.OpponentSlow && !Online.OpponentDisconnected && !Online.OpponentReconnecting)
 {
     <div class="slow-banner">
         <span>Your opponent is taking a while...</span>
@@ -142,6 +150,19 @@
         margin: 0 0 0.75rem;
         font-weight: 600;
         color: var(--terracotta);
+    }
+
+    .reconnecting-banner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0.5rem 1rem;
+        margin: 0.25rem 0;
+        background: rgba(200, 170, 50, 0.2);
+        border: 1px solid #c8a832;
+        border-radius: 0.5rem;
+        color: #c8a832;
+        font-style: italic;
     }
 
     .slow-banner {

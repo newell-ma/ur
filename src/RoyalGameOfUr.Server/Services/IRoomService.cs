@@ -13,4 +13,5 @@ public interface IRoomService
     bool TrySubmitSkipDecision(string code, string connectionId, bool skip);
     GameRoom? GetRoom(string code);
     Task HandleDisconnect(string connectionId);
+    Task<RejoinResult> HandleRejoin(string sessionToken, string newConnectionId);
 }

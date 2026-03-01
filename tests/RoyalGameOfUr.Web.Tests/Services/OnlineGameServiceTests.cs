@@ -15,6 +15,35 @@ public class OnlineGameServiceTests : BunitContext
     }
 
     [Fact]
+    public async Task LeaveRoomAsync_ClearsStateButKeepsHub()
+    {
+        var service = CreateService();
+        service.RoomCode = "TEST";
+        service.IsHost = true;
+        service.OpponentJoined = true;
+        service.OpponentName = "Bob";
+
+        // Hub is null (not connected), so SendAsync is skipped but Reset still runs
+        await service.LeaveRoomAsync();
+
+        Assert.Null(service.RoomCode);
+        Assert.False(service.IsHost);
+        Assert.False(service.OpponentJoined);
+        Assert.Null(service.OpponentName);
+    }
+
+    [Fact]
+    public async Task LeaveRoomAsync_NoRoom_DoesNothing()
+    {
+        var service = CreateService();
+
+        // Should not throw when RoomCode is null
+        await service.LeaveRoomAsync();
+
+        Assert.Null(service.RoomCode);
+    }
+
+    [Fact]
     public async Task LeaveGameAsync_ResetsState()
     {
         var service = CreateService();
@@ -50,11 +79,15 @@ public class OnlineGameServiceTests : BunitContext
         var service = CreateService();
         service.OpponentDisconnected = true;
         service.OpponentSlow = true;
+        service.OpponentReconnecting = true;
+        service.SessionToken = "abc123";
 
         service.Reset();
 
         Assert.False(service.OpponentDisconnected);
         Assert.False(service.OpponentSlow);
+        Assert.False(service.OpponentReconnecting);
+        Assert.Null(service.SessionToken);
     }
 
     [Fact]

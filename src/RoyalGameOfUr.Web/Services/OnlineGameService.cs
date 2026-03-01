@@ -41,9 +41,11 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     public bool DiceRolled { get; internal set; }
     public int[]? IndividualDice { get; internal set; }
 
-    // Disconnect / timeout state
+    // Disconnect / timeout / reconnection state
     public bool OpponentDisconnected { get; internal set; }
     public bool OpponentSlow { get; internal set; }
+    public bool OpponentReconnecting { get; internal set; }
+    public string? SessionToken { get; internal set; }
 
     // Events for UI notification
     public event Func<Task>? OnStateChanged;
@@ -192,6 +194,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         _hub.On("ReceiveOpponentDisconnected", async () =>
         {
             OpponentDisconnected = true;
+            OpponentReconnecting = false;
             IsRunning = false;
             IsAwaitingMove = false;
             IsAwaitingSkip = false;
@@ -199,6 +202,32 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             StatusMessage = "Opponent disconnected";
             if (OnStateChanged is not null) await OnStateChanged.Invoke();
         });
+
+        _hub.On("ReceiveOpponentReconnecting", async () =>
+        {
+            OpponentReconnecting = true;
+            OpponentSlow = false;
+            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+        });
+
+        _hub.On("ReceiveOpponentReconnected", async () =>
+        {
+            OpponentReconnecting = false;
+            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+        });
+
+        _hub.Reconnected += OnReconnected;
+    }
+
+    private async Task OnReconnected(string? _)
+    {
+        if (SessionToken is null || _hub is null) return;
+        var result = await _hub.InvokeAsync<RejoinResult>("Rejoin", SessionToken);
+        if (!result.Success)
+        {
+            ErrorMessage = result.Error;
+            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+        }
     }
 
     public async Task<(bool Success, string? Error)> CreateRoomAsync(string rulesName, string playerName)
@@ -214,6 +243,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         RulesName = result.RulesName;
         Rules = GameStateMapper.ResolveRules(result.RulesName);
         Player1Name = playerName;
+        SessionToken = result.SessionToken;
         return (true, null);
     }
 
@@ -236,6 +266,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         Player2Name = playerName;
         OpponentName = result.HostName;
         OpponentJoined = true;
+        SessionToken = result.SessionToken;
         return (true, null);
     }
 
@@ -260,10 +291,22 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         await _hub.SendAsync("SubmitSkipDecision", RoomCode, skip);
     }
 
+    public async Task LeaveRoomAsync()
+    {
+        if (RoomCode is null) return;
+        if (_hub is not null)
+        {
+            try { await _hub.SendAsync("LeaveRoom"); }
+            catch (InvalidOperationException) { /* connection already closed */ }
+        }
+        Reset();
+    }
+
     public async Task LeaveGameAsync()
     {
         if (_hub is not null)
         {
+            _hub.Reconnected -= OnReconnected;
             await _hub.StopAsync();
             await _hub.DisposeAsync();
             _hub = null;
@@ -294,6 +337,8 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         LocalPlayer = null;
         OpponentDisconnected = false;
         OpponentSlow = false;
+        OpponentReconnecting = false;
+        SessionToken = null;
     }
 
     private static int[] GenerateIndividualDice(int total, int count)
@@ -318,6 +363,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     }
 
     // DTOs for hub invoke results
-    private record CreateRoomResult(string Code, string RulesName);
-    private record JoinRoomResult(bool Success, string Error, string Code, string RulesName, string HostName);
+    private record CreateRoomResult(string Code, string RulesName, string SessionToken);
+    private record JoinRoomResult(bool Success, string Error, string Code, string RulesName, string HostName, string SessionToken);
+    private record RejoinResult(bool Success, string Error, string Code, string RulesName, string Player1Name, string Player2Name, string PlayerSide);
 }

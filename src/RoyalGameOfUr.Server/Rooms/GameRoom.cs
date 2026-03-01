@@ -8,6 +8,8 @@ public sealed class GameRoom : IGameObserver
     private readonly object _joinLock = new();
     private CancellationTokenSource? _cts;
     private IGameBroadcaster? _broadcaster;
+    private CancellationTokenSource? _graceCts;
+    private string? _disconnectedConnectionId;
 
     public string Code { get; }
     public string RulesName { get; }
@@ -17,11 +19,18 @@ public sealed class GameRoom : IGameObserver
     public bool IsFinished { get; private set; }
     public Action<string>? OnGameCompleted { get; set; }
 
+    public string? Player1Token { get; private set; }
+    public string? Player2Token { get; private set; }
+    public GameStateDto? LastStateDto { get; private set; }
+    public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(30);
+    public Action<string, string>? OnGracePeriodExpired { get; set; }
+
     public GameRoom(string code, string rulesName, string hostName, string hostConnectionId)
     {
         Code = code;
         RulesName = rulesName;
         Player1 = new SignalRPlayer(hostName, hostConnectionId);
+        Player1Token = Guid.NewGuid().ToString("N");
     }
 
     public string GroupName => $"room-{Code}";
@@ -32,6 +41,7 @@ public sealed class GameRoom : IGameObserver
         {
             if (Player2 is not null || IsStarted) return false;
             Player2 = new SignalRPlayer(guestName, connectionId);
+            Player2Token = Guid.NewGuid().ToString("N");
             return true;
         }
     }
@@ -45,6 +55,43 @@ public sealed class GameRoom : IGameObserver
 
     public SignalRPlayer? GetSignalRPlayer(Player player) =>
         player == Player.One ? Player1 : Player2;
+
+    public (SignalRPlayer Player, Player Side)? GetPlayerByToken(string token)
+    {
+        if (Player1Token == token && Player1 is not null)
+            return (Player1, Player.One);
+        if (Player2Token == token && Player2 is not null)
+            return (Player2, Player.Two);
+        return null;
+    }
+
+    public void StartGracePeriod(string connectionId)
+    {
+        _disconnectedConnectionId = connectionId;
+        _graceCts?.Dispose();
+        _graceCts = new CancellationTokenSource();
+        var cts = _graceCts;
+        var roomCode = Code;
+        var connId = connectionId;
+
+        Task.Delay(GracePeriod, cts.Token).ContinueWith(t =>
+        {
+            if (!t.IsCanceled)
+                OnGracePeriodExpired?.Invoke(roomCode, connId);
+        }, TaskScheduler.Default);
+    }
+
+    public bool CancelGracePeriod(string connectionId)
+    {
+        if (_graceCts is null || _disconnectedConnectionId != connectionId)
+            return false;
+
+        _graceCts.Cancel();
+        _graceCts.Dispose();
+        _graceCts = null;
+        _disconnectedConnectionId = null;
+        return true;
+    }
 
     public void Start(IGameBroadcaster broadcaster)
     {
@@ -105,6 +152,9 @@ public sealed class GameRoom : IGameObserver
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
+        _graceCts?.Cancel();
+        _graceCts?.Dispose();
+        _graceCts = null;
         Player1?.Cancel();
         Player2?.Cancel();
     }
@@ -115,6 +165,7 @@ public sealed class GameRoom : IGameObserver
     {
         if (_broadcaster is null) return;
         var dto = GameStateMapper.ToDto(state);
+        LastStateDto = dto;
         await _broadcaster.BroadcastStateChanged(GroupName, dto);
     }
 

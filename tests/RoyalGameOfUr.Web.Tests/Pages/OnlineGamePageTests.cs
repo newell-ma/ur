@@ -138,5 +138,61 @@ public class OnlineGamePageTests : BunitContext
 
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".disconnect-banner"));
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".slow-banner"));
+        Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
+    }
+
+    [Fact]
+    public void OpponentReconnecting_ShowsReconnectingBanner()
+    {
+        var cut = RenderWithService(s => s.OpponentReconnecting = true);
+
+        var banner = cut.Find(".reconnecting-banner");
+        Assert.Contains("reconnecting", banner.TextContent, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OpponentReconnecting_HidesOnReconnect()
+    {
+        OnlineGameService? service = null;
+        var cut = RenderWithService(s =>
+        {
+            s.OpponentReconnecting = true;
+            service = s;
+        });
+
+        // Banner visible
+        Assert.NotNull(cut.Find(".reconnecting-banner"));
+
+        // Simulate reconnection
+        service!.OpponentReconnecting = false;
+        cut.Render();
+
+        Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
+    }
+
+    [Fact]
+    public void OpponentReconnecting_HidesSlowBanner()
+    {
+        var cut = RenderWithService(s =>
+        {
+            s.OpponentSlow = true;
+            s.OpponentReconnecting = true;
+        });
+
+        Assert.NotNull(cut.Find(".reconnecting-banner"));
+        Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".slow-banner"));
+    }
+
+    [Fact]
+    public void OpponentDisconnected_HidesReconnectingBanner()
+    {
+        var cut = RenderWithService(s =>
+        {
+            s.OpponentReconnecting = true;
+            s.OpponentDisconnected = true;
+        });
+
+        Assert.NotNull(cut.Find(".disconnect-banner"));
+        Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
     }
 }

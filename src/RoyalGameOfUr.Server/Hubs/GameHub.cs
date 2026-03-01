@@ -48,6 +48,21 @@ public sealed class GameHub : Hub
             await Clients.Caller.SendAsync("ReceiveError", "Not awaiting skip decision");
     }
 
+    public async Task LeaveRoom()
+    {
+        await _roomService.HandleDisconnect(Context.ConnectionId);
+    }
+
+    public async Task<RejoinResult> Rejoin(string sessionToken)
+    {
+        var result = await _roomService.HandleRejoin(sessionToken, Context.ConnectionId);
+        if (result.Success)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"room-{result.Code}");
+        }
+        return result;
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         await _roomService.HandleDisconnect(Context.ConnectionId);

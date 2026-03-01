@@ -27,6 +27,14 @@ public class RoomServiceTests
     }
 
     [Test]
+    public async Task CreateRoom_ReturnsSessionToken()
+    {
+        var result = _service.CreateRoom("Finkel", "Alice", "conn1");
+
+        await Assert.That(result.SessionToken).IsNotNull().And.IsNotEmpty();
+    }
+
+    [Test]
     public async Task JoinRoom_NotFound_ReturnsError()
     {
         var result = await _service.JoinRoom("XXXX", "Bob", "conn2");
@@ -60,6 +68,17 @@ public class RoomServiceTests
             "conn1",
             "ReceiveOpponentJoined",
             Arg.Is<object?[]>(a => a.Length == 1 && (string)a[0]! == "Bob"));
+    }
+
+    [Test]
+    public async Task JoinRoom_Success_ReturnsSessionToken()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+
+        var result = await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(result.SessionToken).IsNotNull().And.IsNotEmpty();
     }
 
     [Test]
@@ -158,7 +177,7 @@ public class RoomServiceTests
     }
 
     [Test]
-    public async Task HandleDisconnect_HostDisconnects_NotifiesGuest()
+    public async Task HandleDisconnect_DuringGame_StartsGracePeriod_NotImmediateTeardown()
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
@@ -167,43 +186,20 @@ public class RoomServiceTests
 
         await _service.HandleDisconnect("conn1");
 
+        // Room should still exist (grace period active, not torn down yet)
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNotNull();
+
+        // Opponent notified with "reconnecting", NOT "disconnected"
         await _broadcaster.Received().SendToPlayer(
             "conn2",
-            "ReceiveOpponentDisconnected",
+            "ReceiveOpponentReconnecting",
             Arg.Any<object?[]>());
+
+        _roomManager.GetRoom(createResult.Code)!.Stop();
     }
 
     [Test]
-    public async Task HandleDisconnect_GuestDisconnects_NotifiesHost()
-    {
-        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
-        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
-        await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
-
-        await _service.HandleDisconnect("conn2");
-
-        await _broadcaster.Received().SendToPlayer(
-            "conn1",
-            "ReceiveOpponentDisconnected",
-            Arg.Any<object?[]>());
-    }
-
-    [Test]
-    public async Task HandleDisconnect_RemovesRoom()
-    {
-        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
-        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
-        await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
-
-        await _service.HandleDisconnect("conn1");
-
-        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
-    }
-
-    [Test]
-    public async Task HandleDisconnect_BeforeGameStarts_RemovesRoom()
+    public async Task HandleDisconnect_BeforeGameStarts_ImmediateTeardown()
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
@@ -224,18 +220,123 @@ public class RoomServiceTests
     }
 
     [Test]
-    public async Task HandleDisconnect_BothDisconnect_SafeForSecondCall()
+    public async Task GracePeriodExpired_TearsDownRoom()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        room.GracePeriod = TimeSpan.FromMilliseconds(100);
+        await Task.Delay(100);
+
+        await _service.HandleDisconnect("conn1");
+
+        // Wait for grace period to expire
+        await Task.Delay(300);
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task GracePeriodExpired_NotifiesOpponentDisconnected()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        room.GracePeriod = TimeSpan.FromMilliseconds(100);
+        await Task.Delay(100);
+        _broadcaster.ClearReceivedCalls();
+
+        await _service.HandleDisconnect("conn1");
+
+        // Wait for grace period to expire
+        await Task.Delay(300);
+
+        await _broadcaster.Received().SendToPlayer(
+            "conn2",
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+    }
+
+    // --- Rejoin tests ---
+
+    [Test]
+    public async Task HandleRejoin_ValidToken_SwapsConnectionId()
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
         await _service.TryStartGame(createResult.Code, "conn1");
         await Task.Delay(100);
 
-        await _service.HandleDisconnect("conn1");
-        // Second disconnect should not throw
-        await _service.HandleDisconnect("conn2");
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        room.GracePeriod = TimeSpan.FromSeconds(30);
 
-        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+        await _service.HandleDisconnect("conn1");
+
+        var result = await _service.HandleRejoin(createResult.SessionToken, "conn1-new");
+
+        await Assert.That(result.Success).IsTrue();
+        await Assert.That(room.Player1!.ConnectionId).IsEqualTo("conn1-new");
+
+        room.Stop();
+    }
+
+    [Test]
+    public async Task HandleRejoin_ValidToken_CancelsGracePeriod()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        room.GracePeriod = TimeSpan.FromMilliseconds(200);
+
+        await _service.HandleDisconnect("conn1");
+
+        // Rejoin before grace expires
+        await _service.HandleRejoin(createResult.SessionToken, "conn1-new");
+
+        // Wait past original grace period — room should still exist
+        await Task.Delay(400);
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNotNull();
+
+        room.Stop();
+    }
+
+    [Test]
+    public async Task HandleRejoin_InvalidToken_ReturnsFailure()
+    {
+        var result = await _service.HandleRejoin("bogus-token", "conn-new");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).Contains("Invalid session token");
+    }
+
+    [Test]
+    public async Task HandleRejoin_NotifiesOpponentReconnected()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await Task.Delay(100);
+
+        var room = _roomManager.GetRoom(createResult.Code)!;
+        await _service.HandleDisconnect("conn1");
+        _broadcaster.ClearReceivedCalls();
+
+        await _service.HandleRejoin(createResult.SessionToken, "conn1-new");
+
+        await _broadcaster.Received().SendToPlayer(
+            "conn2",
+            "ReceiveOpponentReconnected",
+            Arg.Any<object?[]>());
+
+        room.Stop();
     }
 
     [Test]

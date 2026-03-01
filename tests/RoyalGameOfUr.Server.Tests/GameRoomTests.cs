@@ -212,4 +212,119 @@ public class GameRoomTests
 
         await broadcaster.DidNotReceive().BroadcastError(Arg.Any<string>(), Arg.Any<string>());
     }
+
+    // --- Session token tests ---
+
+    [Test]
+    public async Task Constructor_SetsPlayer1Token()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        await Assert.That(room.Player1Token).IsNotNull().And.IsNotEmpty();
+    }
+
+    [Test]
+    public async Task TryJoin_SetsPlayer2Token()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.TryJoin("Bob", "conn2");
+        await Assert.That(room.Player2Token).IsNotNull().And.IsNotEmpty();
+    }
+
+    [Test]
+    public async Task GetPlayerByToken_ReturnsCorrectPlayer()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.TryJoin("Bob", "conn2");
+
+        var result1 = room.GetPlayerByToken(room.Player1Token!);
+        await Assert.That(result1).IsNotNull();
+        await Assert.That(result1!.Value.Player.Name).IsEqualTo("Alice");
+        await Assert.That(result1!.Value.Side).IsEqualTo(Player.One);
+
+        var result2 = room.GetPlayerByToken(room.Player2Token!);
+        await Assert.That(result2).IsNotNull();
+        await Assert.That(result2!.Value.Player.Name).IsEqualTo("Bob");
+        await Assert.That(result2!.Value.Side).IsEqualTo(Player.Two);
+    }
+
+    [Test]
+    public async Task GetPlayerByToken_InvalidToken_ReturnsNull()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        await Assert.That(room.GetPlayerByToken("bogus")).IsNull();
+    }
+
+    // --- Grace period tests ---
+
+    [Test]
+    public async Task StartGracePeriod_ExpiresAfterTimeout_FiresCallback()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.GracePeriod = TimeSpan.FromMilliseconds(100);
+
+        string? firedCode = null;
+        string? firedConnId = null;
+        room.OnGracePeriodExpired = (code, connId) =>
+        {
+            firedCode = code;
+            firedConnId = connId;
+        };
+
+        room.StartGracePeriod("conn1");
+
+        await Task.Delay(300);
+
+        await Assert.That(firedCode).IsEqualTo("TEST");
+        await Assert.That(firedConnId).IsEqualTo("conn1");
+    }
+
+    [Test]
+    public async Task CancelGracePeriod_BeforeExpiry_PreventsCallback()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.GracePeriod = TimeSpan.FromMilliseconds(200);
+
+        bool fired = false;
+        room.OnGracePeriodExpired = (_, _) => fired = true;
+
+        room.StartGracePeriod("conn1");
+        var cancelled = room.CancelGracePeriod("conn1");
+
+        await Task.Delay(400);
+
+        await Assert.That(cancelled).IsTrue();
+        await Assert.That(fired).IsFalse();
+    }
+
+    [Test]
+    public async Task CancelGracePeriod_WrongConnectionId_ReturnsFalse()
+    {
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.GracePeriod = TimeSpan.FromSeconds(30);
+
+        room.StartGracePeriod("conn1");
+        var cancelled = room.CancelGracePeriod("conn-other");
+
+        await Assert.That(cancelled).IsFalse();
+
+        room.Stop(); // clean up
+    }
+
+    // --- LastStateDto cache test ---
+
+    [Test]
+    public async Task LastStateDto_CachedOnStateChanged()
+    {
+        var broadcaster = Substitute.For<IGameBroadcaster>();
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        room.TryJoin("Bob", "conn2");
+        room.Start(broadcaster);
+
+        // Wait for initial state to be broadcast
+        await Task.Delay(200);
+
+        await Assert.That(room.LastStateDto).IsNotNull();
+
+        room.Stop();
+    }
 }
