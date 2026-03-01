@@ -208,11 +208,14 @@ public class GameRoomTests
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
 
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        room.OnGameCompleted = _ => completed.TrySetResult();
+
         room.Start(broadcaster);
         await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         room.Stop();
-        await WaitUntilAsync(() => room.IsFinished);
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await broadcaster.DidNotReceive().BroadcastError(Arg.Any<string>(), Arg.Any<string>());
     }
