@@ -1,5 +1,7 @@
 # The Royal Game of Ur
 
+![Build & Test](https://github.com/newell-ma/ur/actions/workflows/build.yml/badge.svg)
+
 A C# implementation of the [Royal Game of Ur](https://en.wikipedia.org/wiki/Royal_Game_of_Ur), one of the oldest known board games (~2600 BCE). Built with a UI-agnostic engine, pluggable player types, and a console host for two-player hot-seat play.
 
 ## Project Structure

@@ -1,4 +1,4 @@
-name: Build
+name: Build & Test
 
 on:
   workflow_dispatch:
@@ -16,3 +16,21 @@ jobs:
       - run: dotnet restore
 
       - run: dotnet build --no-restore
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet restore
+
+      - run: dotnet build --no-restore
+
+      - run: dotnet run --no-build --project tests/RoyalGameOfUr.Engine.Tests/
+      - run: dotnet run --no-build --project tests/RoyalGameOfUr.Server.Tests/
+      - run: dotnet run --no-build --project tests/RoyalGameOfUr.Web.Tests/
