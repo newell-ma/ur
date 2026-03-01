@@ -205,11 +205,11 @@ public sealed class RoomService : IRoomService
 
     private async Task OnGracePeriodExpired(string roomCode, string connectionId)
     {
+        var room = _roomManager.GetRoom(roomCode);
+        if (room is null) return;
+
         try
         {
-            var room = _roomManager.GetRoom(roomCode);
-            if (room is null) return;
-
             room.Stop();
 
             var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
@@ -218,13 +218,15 @@ public sealed class RoomService : IRoomService
                 await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
                 _connectionToRoom.TryRemove(opponentConnectionId, out _);
             }
-
-            CleanupTokens(room);
-            _roomManager.RemoveRoom(roomCode);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error in grace period expiry for room {RoomCode}", roomCode);
+        }
+        finally
+        {
+            CleanupTokens(room);
+            _roomManager.RemoveRoom(roomCode);
         }
     }
 
