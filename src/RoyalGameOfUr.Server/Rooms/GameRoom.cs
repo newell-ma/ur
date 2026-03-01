@@ -7,6 +7,7 @@ public sealed class GameRoom : IGameObserver
 {
     private readonly object _joinLock = new();
     private readonly TimeProvider _timeProvider;
+    private readonly Func<int, IDice>? _diceFactory;
     private CancellationTokenSource? _cts;
     private IGameBroadcaster? _broadcaster;
     private ITimer? _graceTimer;
@@ -26,11 +27,13 @@ public sealed class GameRoom : IGameObserver
     public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(30);
     public Func<string, string, Task>? OnGracePeriodExpired { get; set; }
 
-    public GameRoom(string code, string rulesName, string hostName, string hostConnectionId, TimeProvider? timeProvider = null)
+    public GameRoom(string code, string rulesName, string hostName, string hostConnectionId,
+        TimeProvider? timeProvider = null, Func<int, IDice>? diceFactory = null)
     {
         Code = code;
         RulesName = rulesName;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _diceFactory = diceFactory;
         Player1 = new SignalRPlayer(hostName, hostConnectionId, _timeProvider);
         Player1Token = Guid.NewGuid().ToString("N");
     }
@@ -119,7 +122,7 @@ public sealed class GameRoom : IGameObserver
             _broadcaster.SendToPlayer(Player1.ConnectionId, "ReceiveOpponentSlow", Player2.Name);
 
         var rules = GameStateMapper.ResolveRules(RulesName);
-        var dice = new Dice(null, rules.DiceCount);
+        var dice = _diceFactory?.Invoke(rules.DiceCount) ?? new Dice(null, rules.DiceCount);
         var game = new Game(dice, rules);
         var runner = new GameRunner(game, Player1, Player2, this);
         var cts = _cts;

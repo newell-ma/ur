@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using RoyalGameOfUr.Engine;
 
 namespace RoyalGameOfUr.Server.Rooms;
 
@@ -6,11 +7,13 @@ public sealed class RoomManager
 {
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
     private readonly TimeProvider _timeProvider;
+    private readonly Func<int, IDice>? _diceFactory;
     private static readonly Random _rng = new();
 
-    public RoomManager(TimeProvider? timeProvider = null)
+    public RoomManager(TimeProvider? timeProvider = null, Func<int, IDice>? diceFactory = null)
     {
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _diceFactory = diceFactory;
     }
 
     public GameRoom CreateRoom(string rulesName, string hostName, string hostConnectionId)
@@ -20,7 +23,7 @@ public sealed class RoomManager
         do
         {
             code = GenerateCode();
-            room = new GameRoom(code, rulesName, hostName, hostConnectionId, _timeProvider);
+            room = new GameRoom(code, rulesName, hostName, hostConnectionId, _timeProvider, _diceFactory);
         } while (!_rooms.TryAdd(code, room));
 
         return room;
