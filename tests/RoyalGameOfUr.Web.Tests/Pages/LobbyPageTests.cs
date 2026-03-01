@@ -29,7 +29,7 @@ public class LobbyPageTests : BunitContext
         field!.SetValue(cut.Instance, value);
     }
 
-    [Fact]
+    [Test]
     public async Task Dispose_InRoom_GameNotStarted_LeavesRoom()
     {
         var cut = RenderLobby();
@@ -40,25 +40,22 @@ public class LobbyPageTests : BunitContext
 
         await cut.Instance.DisposeAsync();
 
-        // LeaveRoomAsync should have been called, which resets RoomCode
-        Assert.Null(_service.RoomCode);
+        await Assert.That(_service.RoomCode).IsNull();
     }
 
-    [Fact]
+    [Test]
     public async Task Dispose_NotInRoom_DoesNothing()
     {
         var cut = RenderLobby();
 
         _service.RoomCode = "TEST";
-        // _inRoom is false (default)
 
         await cut.Instance.DisposeAsync();
 
-        // Should not call LeaveRoomAsync, so RoomCode stays
-        Assert.Equal("TEST", _service.RoomCode);
+        await Assert.That(_service.RoomCode).IsEqualTo("TEST");
     }
 
-    [Fact]
+    [Test]
     public async Task Dispose_GameStarted_DoesNotLeave()
     {
         var cut = RenderLobby();
@@ -69,17 +66,16 @@ public class LobbyPageTests : BunitContext
 
         await cut.Instance.DisposeAsync();
 
-        // Should NOT call LeaveRoomAsync because game is running
-        Assert.Equal("TEST", _service.RoomCode);
+        await Assert.That(_service.RoomCode).IsEqualTo("TEST");
     }
 
-    [Fact]
-    public void Init_ClearsStoredToken()
+    [Test]
+    public async Task Init_ClearsStoredToken()
     {
         var removeInvocation = JSInterop.SetupVoid("sessionStorage.removeItem", "ur_session_token");
 
         RenderLobby();
 
-        Assert.Single(removeInvocation.Invocations);
+        await Assert.That(removeInvocation.Invocations.Count).IsEqualTo(1);
     }
 }

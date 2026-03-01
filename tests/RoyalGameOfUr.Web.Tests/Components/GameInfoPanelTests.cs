@@ -6,8 +6,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class GameInfoPanelTests : BunitContext
 {
-    [Fact]
-    public void ShowsPlayerNames()
+    [Test]
+    public async Task ShowsPlayerNames()
     {
         var state = new GameStateBuilder(GameRules.Finkel).Build();
 
@@ -16,12 +16,12 @@ public class GameInfoPanelTests : BunitContext
             .Add(p => p.Player1Name, "Alice")
             .Add(p => p.Player2Name, "Bob"));
 
-        Assert.Contains("Alice", cut.Markup);
-        Assert.Contains("Bob", cut.Markup);
+        await Assert.That(cut.Markup).Contains("Alice");
+        await Assert.That(cut.Markup).Contains("Bob");
     }
 
-    [Fact]
-    public void ShowsAiLabel()
+    [Test]
+    public async Task ShowsAiLabel()
     {
         var state = new GameStateBuilder(GameRules.Finkel).Build();
 
@@ -32,15 +32,14 @@ public class GameInfoPanelTests : BunitContext
             .Add(p => p.Player1Type, PlayerType.Human)
             .Add(p => p.Player2Type, PlayerType.Computer));
 
-        Assert.Contains("(AI)", cut.Markup);
+        await Assert.That(cut.Markup).Contains("(AI)");
 
-        // Only P2 should have AI label
         var aiLabels = cut.FindAll(".player-type");
-        Assert.Single(aiLabels);
+        await Assert.That(aiLabels.Count).IsEqualTo(1);
     }
 
-    [Fact]
-    public void ShowsTurnIndicator()
+    [Test]
+    public async Task ShowsTurnIndicator()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
             .WithCurrentPlayer(Player.One)
@@ -52,12 +51,12 @@ public class GameInfoPanelTests : BunitContext
             .Add(p => p.Player2Name, "Bob"));
 
         var turnIndicator = cut.Find(".turn-indicator");
-        Assert.Contains("Alice", turnIndicator.TextContent);
-        Assert.Contains("turn", turnIndicator.TextContent);
+        await Assert.That(turnIndicator.TextContent).Contains("Alice");
+        await Assert.That(turnIndicator.TextContent).Contains("turn");
     }
 
-    [Fact]
-    public void ShowsStatusMessage()
+    [Test]
+    public async Task ShowsStatusMessage()
     {
         var state = new GameStateBuilder(GameRules.Finkel).Build();
 
@@ -68,6 +67,6 @@ public class GameInfoPanelTests : BunitContext
             .Add(p => p.StatusMessage, "P1 rolled 3"));
 
         var statusDiv = cut.Find(".status-message");
-        Assert.Equal("P1 rolled 3", statusDiv.TextContent);
+        await Assert.That(statusDiv.TextContent).IsEqualTo("P1 rolled 3");
     }
 }

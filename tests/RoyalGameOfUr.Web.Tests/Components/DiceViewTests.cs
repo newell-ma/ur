@@ -5,8 +5,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class DiceViewTests : BunitContext
 {
-    [Fact]
-    public void RendersDice()
+    [Test]
+    public async Task RendersDice()
     {
         var dice = new[] { 1, 0, 1, 0 };
 
@@ -16,11 +16,11 @@ public class DiceViewTests : BunitContext
             .Add(p => p.EffectiveTotal, 2));
 
         var svgs = cut.FindAll("svg.die");
-        Assert.Equal(4, svgs.Count);
+        await Assert.That(svgs.Count).IsEqualTo(4);
     }
 
-    [Fact]
-    public void MarkedDice_HasClass()
+    [Test]
+    public async Task MarkedDice_HasClass()
     {
         var dice = new[] { 1, 0, 1, 0 };
 
@@ -30,16 +30,14 @@ public class DiceViewTests : BunitContext
             .Add(p => p.EffectiveTotal, 2));
 
         var tips = cut.FindAll(".die-tip");
-        Assert.Equal(4, tips.Count);
+        await Assert.That(tips.Count).IsEqualTo(4);
 
-        // First die (value=1) should be marked
-        Assert.Contains("marked", tips[0].GetAttribute("class")!);
-        // Second die (value=0) should not be marked
-        Assert.DoesNotContain("marked", tips[1].GetAttribute("class")!);
+        await Assert.That(tips[0].GetAttribute("class")!).Contains("marked");
+        await Assert.That(tips[1].GetAttribute("class")!).DoesNotContain("marked");
     }
 
-    [Fact]
-    public void RollingAnimation_HasClass()
+    [Test]
+    public async Task RollingAnimation_HasClass()
     {
         var dice = new[] { 1, 0, 1, 0 };
 
@@ -52,18 +50,18 @@ public class DiceViewTests : BunitContext
         var svgs = cut.FindAll("svg.die");
         foreach (var svg in svgs)
         {
-            Assert.Contains("rolling", svg.GetAttribute("class")!);
+            await Assert.That(svg.GetAttribute("class")!).Contains("rolling");
         }
     }
 
-    [Fact]
-    public void NullDice_RendersNothing()
+    [Test]
+    public async Task NullDice_RendersNothing()
     {
         var cut = Render<DiceView>(parameters => parameters
             .Add(p => p.IndividualDice, (int[]?)null)
             .Add(p => p.Total, 0)
             .Add(p => p.EffectiveTotal, 0));
 
-        Assert.Empty(cut.FindAll("svg.die"));
+        await Assert.That(cut.FindAll("svg.die")).IsEmpty();
     }
 }

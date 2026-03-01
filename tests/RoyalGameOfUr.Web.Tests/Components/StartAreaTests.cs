@@ -6,8 +6,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class StartAreaTests : BunitContext
 {
-    [Fact]
-    public void ShowsCorrectPieceCount()
+    [Test]
+    public async Task ShowsCorrectPieceCount()
     {
         var rules = GameRules.Finkel;
         var state = new GameStateBuilder(rules)
@@ -20,13 +20,12 @@ public class StartAreaTests : BunitContext
             .Add(p => p.Rules, rules)
             .Add(p => p.ValidMoves, Array.Empty<Move>()));
 
-        // 7 pieces total, 1 on board = 6 at start
         var circles = cut.FindAll("circle");
-        Assert.Equal(6, circles.Count);
+        await Assert.That(circles.Count).IsEqualTo(6);
     }
 
-    [Fact]
-    public void ClickableWhenEnterMoveValid()
+    [Test]
+    public async Task ClickableWhenEnterMoveValid()
     {
         var rules = GameRules.Finkel;
         var state = new GameStateBuilder(rules).Build();
@@ -43,17 +42,16 @@ public class StartAreaTests : BunitContext
             .Add(p => p.ValidMoves, validMoves));
 
         var circles = cut.FindAll("circle");
-        Assert.NotEmpty(circles);
-        Assert.Contains("clickable", circles[0].GetAttribute("class")!);
+        await Assert.That(circles).IsNotEmpty();
+        await Assert.That(circles[0].GetAttribute("class")!).Contains("clickable");
     }
 
-    [Fact]
-    public void NotClickableWhenNoEnterMove()
+    [Test]
+    public async Task NotClickableWhenNoEnterMove()
     {
         var rules = GameRules.Finkel;
         var state = new GameStateBuilder(rules).Build();
 
-        // No valid moves from start
         var validMoves = new List<Move>
         {
             new(Player.One, 0, 2, 5)  // move on board, not from start
@@ -66,7 +64,7 @@ public class StartAreaTests : BunitContext
             .Add(p => p.ValidMoves, validMoves));
 
         var circles = cut.FindAll("circle");
-        Assert.NotEmpty(circles);
-        Assert.DoesNotContain("clickable", circles[0].GetAttribute("class") ?? "");
+        await Assert.That(circles).IsNotEmpty();
+        await Assert.That(circles[0].GetAttribute("class") ?? "").DoesNotContain("clickable");
     }
 }

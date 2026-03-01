@@ -6,8 +6,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class PieceViewTests : BunitContext
 {
-    [Fact]
-    public void Renders_Player1Piece()
+    [Test]
+    public async Task Renders_Player1Piece()
     {
         var cut = Render<PieceView>(parameters => parameters
             .Add(p => p.CenterX, 50)
@@ -15,11 +15,11 @@ public class PieceViewTests : BunitContext
             .Add(p => p.Player, Player.One));
 
         var circle = cut.Find("circle");
-        Assert.Contains("piece-circle-p1", circle.GetAttribute("class")!);
+        await Assert.That(circle.GetAttribute("class")!).Contains("piece-circle-p1");
     }
 
-    [Fact]
-    public void Renders_Player2Piece()
+    [Test]
+    public async Task Renders_Player2Piece()
     {
         var cut = Render<PieceView>(parameters => parameters
             .Add(p => p.CenterX, 50)
@@ -27,11 +27,11 @@ public class PieceViewTests : BunitContext
             .Add(p => p.Player, Player.Two));
 
         var circle = cut.Find("circle");
-        Assert.Contains("piece-circle-p2", circle.GetAttribute("class")!);
+        await Assert.That(circle.GetAttribute("class")!).Contains("piece-circle-p2");
     }
 
-    [Fact]
-    public void StackCount_Shown()
+    [Test]
+    public async Task StackCount_Shown()
     {
         var cut = Render<PieceView>(parameters => parameters
             .Add(p => p.CenterX, 50)
@@ -41,11 +41,11 @@ public class PieceViewTests : BunitContext
             .Add(p => p.StackCount, 3));
 
         var text = cut.Find("text");
-        Assert.Equal("3", text.TextContent);
+        await Assert.That(text.TextContent).IsEqualTo("3");
     }
 
-    [Fact]
-    public void StackCount_HiddenWhenOne()
+    [Test]
+    public async Task StackCount_HiddenWhenOne()
     {
         var cut = Render<PieceView>(parameters => parameters
             .Add(p => p.CenterX, 50)
@@ -54,11 +54,11 @@ public class PieceViewTests : BunitContext
             .Add(p => p.ShowStackCount, true)
             .Add(p => p.StackCount, 1));
 
-        Assert.Empty(cut.FindAll("text"));
+        await Assert.That(cut.FindAll("text")).IsEmpty();
     }
 
-    [Fact]
-    public void Click_DoesNotFire_WhenNotClickable()
+    [Test]
+    public async Task Click_DoesNotFire_WhenNotClickable()
     {
         bool clicked = false;
 
@@ -70,11 +70,11 @@ public class PieceViewTests : BunitContext
             .Add(p => p.OnClick, () => { clicked = true; }));
 
         cut.Find("g").Click();
-        Assert.False(clicked);
+        await Assert.That(clicked).IsFalse();
     }
 
-    [Fact]
-    public void Click_Fires_WhenClickable()
+    [Test]
+    public async Task Click_Fires_WhenClickable()
     {
         bool clicked = false;
 
@@ -86,6 +86,6 @@ public class PieceViewTests : BunitContext
             .Add(p => p.OnClick, () => { clicked = true; }));
 
         cut.Find("g").Click();
-        Assert.True(clicked);
+        await Assert.That(clicked).IsTrue();
     }
 }

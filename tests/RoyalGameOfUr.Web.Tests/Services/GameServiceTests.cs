@@ -5,7 +5,7 @@ namespace RoyalGameOfUr.Web.Tests.Services;
 
 public class GameServiceTests
 {
-    [Fact]
+    [Test]
     public async Task StartGameAsync_InitializesState()
     {
         var svc = new GameService();
@@ -18,14 +18,14 @@ public class GameServiceTests
         // Give the background runner a moment to fire OnStateChanged
         await Task.Delay(200);
 
-        Assert.NotNull(svc.State);
-        Assert.True(svc.IsRunning);
-        Assert.Equal("Finkel", svc.Rules.Name);
+        await Assert.That(svc.State).IsNotNull();
+        await Assert.That(svc.IsRunning).IsTrue();
+        await Assert.That(svc.Rules.Name).IsEqualTo("Finkel");
 
         svc.StopGame();
     }
 
-    [Fact]
+    [Test]
     public async Task StartGameAsync_SetsPlayerNames()
     {
         var svc = new GameService();
@@ -35,15 +35,15 @@ public class GameServiceTests
             PlayerType.Human, "Alice",
             PlayerType.Computer, "Bot");
 
-        Assert.Equal("Alice", svc.Player1Name);
-        Assert.Equal("Bot", svc.Player2Name);
-        Assert.Equal(PlayerType.Human, svc.Player1Type);
-        Assert.Equal(PlayerType.Computer, svc.Player2Type);
+        await Assert.That(svc.Player1Name).IsEqualTo("Alice");
+        await Assert.That(svc.Player2Name).IsEqualTo("Bot");
+        await Assert.That(svc.Player1Type).IsEqualTo(PlayerType.Human);
+        await Assert.That(svc.Player2Type).IsEqualTo(PlayerType.Computer);
 
         svc.StopGame();
     }
 
-    [Fact]
+    [Test]
     public async Task StopGame_CleansUp()
     {
         var svc = new GameService();
@@ -57,10 +57,10 @@ public class GameServiceTests
 
         svc.StopGame();
 
-        Assert.False(svc.IsRunning);
+        await Assert.That(svc.IsRunning).IsFalse();
     }
 
-    [Fact]
+    [Test]
     public async Task OnDiceRolled_SetsStatusMessage()
     {
         var svc = new GameService();
@@ -71,13 +71,13 @@ public class GameServiceTests
 
         await observer.OnDiceRolledAsync(Player.One, 3);
 
-        Assert.Equal(3, svc.LastRollDisplay);
-        Assert.True(svc.DiceRolled);
-        Assert.NotNull(svc.IndividualDice);
-        Assert.Contains("rolled 3", svc.StatusMessage);
+        await Assert.That(svc.LastRollDisplay).IsEqualTo(3);
+        await Assert.That(svc.DiceRolled).IsTrue();
+        await Assert.That(svc.IndividualDice).IsNotNull();
+        await Assert.That(svc.StatusMessage!).Contains("rolled 3");
     }
 
-    [Fact]
+    [Test]
     public async Task OnMoveMade_ClearsValidMoves()
     {
         var svc = new GameService();
@@ -88,11 +88,11 @@ public class GameServiceTests
 
         await observer.OnMoveMadeAsync(move, outcome);
 
-        Assert.Empty(svc.ValidMoves);
-        Assert.False(svc.DiceRolled);
+        await Assert.That(svc.ValidMoves).IsEmpty();
+        await Assert.That(svc.DiceRolled).IsFalse();
     }
 
-    [Fact]
+    [Test]
     public async Task OnGameOver_SetsWinner()
     {
         var svc = new GameService();
@@ -100,7 +100,7 @@ public class GameServiceTests
 
         await observer.OnGameOverAsync(Player.Two);
 
-        Assert.Equal(Player.Two, svc.Winner);
-        Assert.Contains("wins", svc.StatusMessage);
+        await Assert.That(svc.Winner).IsEqualTo(Player.Two);
+        await Assert.That(svc.StatusMessage!).Contains("wins");
     }
 }

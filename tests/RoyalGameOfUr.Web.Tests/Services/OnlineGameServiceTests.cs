@@ -15,7 +15,7 @@ public class OnlineGameServiceTests : BunitContext
         return new OnlineGameService(nav, JSInterop.JSRuntime);
     }
 
-    [Fact]
+    [Test]
     public async Task LeaveRoomAsync_ClearsStateButKeepsHub()
     {
         var service = CreateService();
@@ -24,27 +24,25 @@ public class OnlineGameServiceTests : BunitContext
         service.OpponentJoined = true;
         service.OpponentName = "Bob";
 
-        // Hub is null (not connected), so SendAsync is skipped but Reset still runs
         await service.LeaveRoomAsync();
 
-        Assert.Null(service.RoomCode);
-        Assert.False(service.IsHost);
-        Assert.False(service.OpponentJoined);
-        Assert.Null(service.OpponentName);
+        await Assert.That(service.RoomCode).IsNull();
+        await Assert.That(service.IsHost).IsFalse();
+        await Assert.That(service.OpponentJoined).IsFalse();
+        await Assert.That(service.OpponentName).IsNull();
     }
 
-    [Fact]
+    [Test]
     public async Task LeaveRoomAsync_NoRoom_DoesNothing()
     {
         var service = CreateService();
 
-        // Should not throw when RoomCode is null
         await service.LeaveRoomAsync();
 
-        Assert.Null(service.RoomCode);
+        await Assert.That(service.RoomCode).IsNull();
     }
 
-    [Fact]
+    [Test]
     public async Task LeaveGameAsync_ResetsState()
     {
         var service = CreateService();
@@ -57,25 +55,24 @@ public class OnlineGameServiceTests : BunitContext
 
         await service.LeaveGameAsync();
 
-        Assert.Null(service.RoomCode);
-        Assert.False(service.IsRunning);
-        Assert.False(service.OpponentSlow);
-        Assert.False(service.OpponentDisconnected);
-        Assert.False(service.IsAwaitingMove);
-        Assert.Null(service.Winner);
+        await Assert.That(service.RoomCode).IsNull();
+        await Assert.That(service.IsRunning).IsFalse();
+        await Assert.That(service.OpponentSlow).IsFalse();
+        await Assert.That(service.OpponentDisconnected).IsFalse();
+        await Assert.That(service.IsAwaitingMove).IsFalse();
+        await Assert.That(service.Winner).IsNull();
     }
 
-    [Fact]
+    [Test]
     public async Task LeaveGameAsync_WithoutConnect_DoesNotThrow()
     {
         var service = CreateService();
 
-        // Should not throw even though hub was never connected
         await service.LeaveGameAsync();
     }
 
-    [Fact]
-    public void Reset_ClearsDisconnectAndSlowFlags()
+    [Test]
+    public async Task Reset_ClearsDisconnectAndSlowFlags()
     {
         var service = CreateService();
         service.OpponentDisconnected = true;
@@ -85,14 +82,14 @@ public class OnlineGameServiceTests : BunitContext
 
         service.Reset();
 
-        Assert.False(service.OpponentDisconnected);
-        Assert.False(service.OpponentSlow);
-        Assert.False(service.OpponentReconnecting);
-        Assert.Null(service.SessionToken);
+        await Assert.That(service.OpponentDisconnected).IsFalse();
+        await Assert.That(service.OpponentSlow).IsFalse();
+        await Assert.That(service.OpponentReconnecting).IsFalse();
+        await Assert.That(service.SessionToken).IsNull();
     }
 
-    [Fact]
-    public void Reset_ClearsAllGameState()
+    [Test]
+    public async Task Reset_ClearsAllGameState()
     {
         var service = CreateService();
         service.RoomCode = "ABCD";
@@ -111,22 +108,22 @@ public class OnlineGameServiceTests : BunitContext
 
         service.Reset();
 
-        Assert.Null(service.RoomCode);
-        Assert.Null(service.RulesName);
-        Assert.False(service.IsHost);
-        Assert.False(service.OpponentJoined);
-        Assert.Null(service.OpponentName);
-        Assert.False(service.IsRunning);
-        Assert.False(service.IsAwaitingMove);
-        Assert.False(service.IsAwaitingSkip);
-        Assert.Null(service.Winner);
-        Assert.Null(service.StatusMessage);
-        Assert.Null(service.ErrorMessage);
-        Assert.False(service.DiceRolled);
-        Assert.Null(service.LocalPlayer);
+        await Assert.That(service.RoomCode).IsNull();
+        await Assert.That(service.RulesName).IsNull();
+        await Assert.That(service.IsHost).IsFalse();
+        await Assert.That(service.OpponentJoined).IsFalse();
+        await Assert.That(service.OpponentName).IsNull();
+        await Assert.That(service.IsRunning).IsFalse();
+        await Assert.That(service.IsAwaitingMove).IsFalse();
+        await Assert.That(service.IsAwaitingSkip).IsFalse();
+        await Assert.That(service.Winner).IsNull();
+        await Assert.That(service.StatusMessage).IsNull();
+        await Assert.That(service.ErrorMessage).IsNull();
+        await Assert.That(service.DiceRolled).IsFalse();
+        await Assert.That(service.LocalPlayer).IsNull();
     }
 
-    [Fact]
+    [Test]
     public async Task TryRejoinAsync_NoStoredToken_ReturnsFalse()
     {
         var nav = Services.GetRequiredService<NavigationManager>();
@@ -135,10 +132,10 @@ public class OnlineGameServiceTests : BunitContext
 
         var result = await service.TryRejoinAsync();
 
-        Assert.False(result);
+        await Assert.That(result).IsFalse();
     }
 
-    [Fact]
+    [Test]
     public async Task ClearStoredTokenAsync_RemovesFromSessionStorage()
     {
         var nav = Services.GetRequiredService<NavigationManager>();
@@ -148,6 +145,6 @@ public class OnlineGameServiceTests : BunitContext
 
         await service.ClearStoredTokenAsync();
 
-        Assert.Single(removeInvocation.Invocations);
+        await Assert.That(removeInvocation.Invocations.Count).IsEqualTo(1);
     }
 }

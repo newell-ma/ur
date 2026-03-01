@@ -6,8 +6,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class CellViewTests : BunitContext
 {
-    [Fact]
-    public void Renders_BasicCell()
+    [Test]
+    public async Task Renders_BasicCell()
     {
         var cut = Render<CellView>(parameters => parameters
             .Add(p => p.X, 20)
@@ -16,15 +16,14 @@ public class CellViewTests : BunitContext
             .Add(p => p.IsValidDestination, false));
 
         var rect = cut.Find("rect");
-        Assert.NotNull(rect);
-        Assert.DoesNotContain("rosette", rect.GetAttribute("class") ?? "");
+        await Assert.That(rect).IsNotNull();
+        await Assert.That(rect.GetAttribute("class") ?? "").DoesNotContain("rosette");
 
-        // No star polygon for non-rosette
-        Assert.Empty(cut.FindAll("polygon"));
+        await Assert.That(cut.FindAll("polygon")).IsEmpty();
     }
 
-    [Fact]
-    public void Renders_RosetteCell()
+    [Test]
+    public async Task Renders_RosetteCell()
     {
         var cut = Render<CellView>(parameters => parameters
             .Add(p => p.X, 20)
@@ -33,16 +32,15 @@ public class CellViewTests : BunitContext
             .Add(p => p.IsValidDestination, false));
 
         var rect = cut.Find("rect");
-        Assert.Contains("rosette", rect.GetAttribute("class")!);
+        await Assert.That(rect.GetAttribute("class")!).Contains("rosette");
 
-        // Should have star polygon
         var polygon = cut.Find("polygon");
-        Assert.NotNull(polygon);
-        Assert.Contains("rosette-star", polygon.GetAttribute("class")!);
+        await Assert.That(polygon).IsNotNull();
+        await Assert.That(polygon.GetAttribute("class")!).Contains("rosette-star");
     }
 
-    [Fact]
-    public void ValidDestination_HasClass()
+    [Test]
+    public async Task ValidDestination_HasClass()
     {
         var cut = Render<CellView>(parameters => parameters
             .Add(p => p.X, 20)
@@ -51,11 +49,11 @@ public class CellViewTests : BunitContext
             .Add(p => p.IsValidDestination, true));
 
         var rect = cut.Find("rect");
-        Assert.Contains("valid-destination", rect.GetAttribute("class")!);
+        await Assert.That(rect.GetAttribute("class")!).Contains("valid-destination");
     }
 
-    [Fact]
-    public void Click_FiresCallback_WhenValid()
+    [Test]
+    public async Task Click_FiresCallback_WhenValid()
     {
         bool clicked = false;
 
@@ -67,11 +65,11 @@ public class CellViewTests : BunitContext
             .Add(p => p.OnClick, () => { clicked = true; }));
 
         cut.Find("rect").Click();
-        Assert.True(clicked);
+        await Assert.That(clicked).IsTrue();
     }
 
-    [Fact]
-    public void Click_DoesNotFireCallback_WhenNotValid()
+    [Test]
+    public async Task Click_DoesNotFireCallback_WhenNotValid()
     {
         bool clicked = false;
 
@@ -83,6 +81,6 @@ public class CellViewTests : BunitContext
             .Add(p => p.OnClick, () => { clicked = true; }));
 
         cut.Find("rect").Click();
-        Assert.False(clicked);
+        await Assert.That(clicked).IsFalse();
     }
 }

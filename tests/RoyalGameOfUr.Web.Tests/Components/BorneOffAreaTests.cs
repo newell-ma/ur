@@ -6,8 +6,8 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class BorneOffAreaTests : BunitContext
 {
-    [Fact]
-    public void ShowsCorrectCount()
+    [Test]
+    public async Task ShowsCorrectCount()
     {
         var rules = GameRules.Finkel;
         var state = new GameStateBuilder(rules)
@@ -20,19 +20,17 @@ public class BorneOffAreaTests : BunitContext
             .Add(p => p.State, state)
             .Add(p => p.Rules, rules));
 
-        // Should show "P1 Home: 2 / 7"
-        cut.MarkupMatches(cut.Markup); // sanity
-        Assert.Contains("2 / 7", cut.Markup);
+        await Assert.That(cut.Markup).Contains("2 / 7");
     }
 
-    [Fact]
-    public void NullState_RendersNothing()
+    [Test]
+    public async Task NullState_RendersNothing()
     {
         var cut = Render<BorneOffArea>(parameters => parameters
             .Add(p => p.Player, Player.One)
             .Add(p => p.State, (GameState?)null)
             .Add(p => p.Rules, GameRules.Finkel));
 
-        Assert.Empty(cut.Markup.Trim());
+        await Assert.That(cut.Markup.Trim()).IsEmpty();
     }
 }

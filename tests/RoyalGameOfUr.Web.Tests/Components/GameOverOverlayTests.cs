@@ -6,19 +6,19 @@ namespace RoyalGameOfUr.Web.Tests.Components;
 
 public class GameOverOverlayTests : BunitContext
 {
-    [Fact]
-    public void ShowsWinnerName()
+    [Test]
+    public async Task ShowsWinnerName()
     {
         var cut = Render<GameOverOverlay>(parameters => parameters
             .Add(p => p.Winner, Player.One)
             .Add(p => p.WinnerName, "Alice"));
 
-        Assert.Contains("Alice wins!", cut.Markup);
-        Assert.Contains("Game Over", cut.Markup);
+        await Assert.That(cut.Markup).Contains("Alice wins!");
+        await Assert.That(cut.Markup).Contains("Game Over");
     }
 
-    [Fact]
-    public void PlayAgainButton_FiresCallback()
+    [Test]
+    public async Task PlayAgainButton_FiresCallback()
     {
         bool playAgainClicked = false;
 
@@ -28,28 +28,28 @@ public class GameOverOverlayTests : BunitContext
             .Add(p => p.OnPlayAgain, () => { playAgainClicked = true; }));
 
         cut.Find("button").Click();
-        Assert.True(playAgainClicked);
+        await Assert.That(playAgainClicked).IsTrue();
     }
 
-    [Fact]
-    public void CorrectPlayerClass()
+    [Test]
+    public async Task CorrectPlayerClass()
     {
         var cut = Render<GameOverOverlay>(parameters => parameters
             .Add(p => p.Winner, Player.One)
             .Add(p => p.WinnerName, "Alice"));
 
         var winnerElement = cut.Find(".game-over-winner");
-        Assert.Contains("text-player1", winnerElement.GetAttribute("class")!);
+        await Assert.That(winnerElement.GetAttribute("class")!).Contains("text-player1");
     }
 
-    [Fact]
-    public void Player2_HasCorrectClass()
+    [Test]
+    public async Task Player2_HasCorrectClass()
     {
         var cut = Render<GameOverOverlay>(parameters => parameters
             .Add(p => p.Winner, Player.Two)
             .Add(p => p.WinnerName, "Bob"));
 
         var winnerElement = cut.Find(".game-over-winner");
-        Assert.Contains("text-player2", winnerElement.GetAttribute("class")!);
+        await Assert.That(winnerElement.GetAttribute("class")!).Contains("text-player2");
     }
 }

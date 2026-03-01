@@ -16,7 +16,6 @@ public class OnlineGamePageTests : BunitContext
         {
             var nav = sp.GetRequiredService<NavigationManager>();
             var service = new OnlineGameService(nav, JSInterop.JSRuntime);
-            // Minimum state so OnInitializedAsync doesn't redirect away
             service.Rules = GameRules.Finkel;
             service.IsRunning = true;
             service.RoomCode = "TEST";
@@ -30,66 +29,66 @@ public class OnlineGamePageTests : BunitContext
         return Render<OnlineGamePage>();
     }
 
-    [Fact]
-    public void OpponentDisconnected_ShowsDisconnectBanner()
+    [Test]
+    public async Task OpponentDisconnected_ShowsDisconnectBanner()
     {
         var cut = RenderWithService(s => s.OpponentDisconnected = true);
 
         var banner = cut.Find(".disconnect-banner");
-        Assert.Contains("disconnected", banner.TextContent, StringComparison.OrdinalIgnoreCase);
+        await Assert.That(banner.TextContent.ToLowerInvariant()).Contains("disconnected");
     }
 
-    [Fact]
-    public void OpponentDisconnected_ShowsBackToLobbyButton()
+    [Test]
+    public async Task OpponentDisconnected_ShowsBackToLobbyButton()
     {
         var cut = RenderWithService(s => s.OpponentDisconnected = true);
 
         var button = cut.Find(".disconnect-banner button");
-        Assert.Equal("Back to Lobby", button.TextContent);
+        await Assert.That(button.TextContent).IsEqualTo("Back to Lobby");
     }
 
-    [Fact]
-    public void OpponentDisconnected_BackToLobby_Navigates()
+    [Test]
+    public async Task OpponentDisconnected_BackToLobby_Navigates()
     {
         var cut = RenderWithService(s => s.OpponentDisconnected = true);
 
         cut.Find(".disconnect-banner button").Click();
 
         var nav = Services.GetRequiredService<NavigationManager>();
-        Assert.EndsWith("/online", nav.Uri);
+        await Assert.That(nav.Uri).EndsWith("/online");
     }
 
-    [Fact]
-    public void OpponentSlow_ShowsSlowBanner()
+    [Test]
+    public async Task OpponentSlow_ShowsSlowBanner()
     {
         var cut = RenderWithService(s => s.OpponentSlow = true);
 
         var banner = cut.Find(".slow-banner");
-        Assert.Contains("taking a while", banner.TextContent);
+        await Assert.That(banner.TextContent).Contains("taking a while");
     }
 
-    [Fact]
-    public void OpponentSlow_ShowsLeaveGameButton()
+    [Test]
+    public async Task OpponentSlow_ShowsLeaveGameButton()
     {
         var cut = RenderWithService(s => s.OpponentSlow = true);
 
         var button = cut.Find(".slow-banner .btn-leave");
-        Assert.Equal("Leave Game", button.TextContent);
+        await Assert.That(button.TextContent).IsEqualTo("Leave Game");
     }
 
-    [Fact]
-    public void OpponentSlow_LeaveGame_Navigates()
+    [Test]
+    public async Task OpponentSlow_LeaveGame_Navigates()
     {
         var cut = RenderWithService(s => s.OpponentSlow = true);
 
         cut.Find(".slow-banner .btn-leave").Click();
 
         var nav = Services.GetRequiredService<NavigationManager>();
-        Assert.EndsWith("/online", nav.Uri);
+        await Assert.That(nav.Uri).EndsWith("/online");
     }
 
-    [Fact]
-    public void OpponentDisconnected_HidesSlowBanner()
+    [Test]
+    public async Task OpponentDisconnected_HidesSlowBanner()
     {
         var cut = RenderWithService(s =>
         {
@@ -97,12 +96,12 @@ public class OnlineGamePageTests : BunitContext
             s.OpponentDisconnected = true;
         });
 
-        Assert.NotNull(cut.Find(".disconnect-banner"));
+        await Assert.That(cut.Find(".disconnect-banner")).IsNotNull();
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".slow-banner"));
     }
 
-    [Fact]
-    public void NoTimeout_NoDisconnect_ShowsWaitingMessage()
+    [Test]
+    public async Task NoTimeout_NoDisconnect_ShowsWaitingMessage()
     {
         var cut = RenderWithService(s =>
         {
@@ -113,11 +112,11 @@ public class OnlineGamePageTests : BunitContext
         });
 
         var waiting = cut.Find(".waiting-turn");
-        Assert.Contains("Waiting for opponent", waiting.TextContent);
+        await Assert.That(waiting.TextContent).Contains("Waiting for opponent");
     }
 
-    [Fact]
-    public void OpponentSlow_HidesWaitingMessage()
+    [Test]
+    public async Task OpponentSlow_HidesWaitingMessage()
     {
         var cut = RenderWithService(s =>
         {
@@ -128,11 +127,11 @@ public class OnlineGamePageTests : BunitContext
             s.OpponentSlow = true;
         });
 
-        Assert.NotNull(cut.Find(".slow-banner"));
+        await Assert.That(cut.Find(".slow-banner")).IsNotNull();
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".waiting-turn"));
     }
 
-    [Fact]
+    [Test]
     public void NormalState_NoBanners()
     {
         var cut = RenderWithService(_ => { });
@@ -142,17 +141,17 @@ public class OnlineGamePageTests : BunitContext
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
     }
 
-    [Fact]
-    public void OpponentReconnecting_ShowsReconnectingBanner()
+    [Test]
+    public async Task OpponentReconnecting_ShowsReconnectingBanner()
     {
         var cut = RenderWithService(s => s.OpponentReconnecting = true);
 
         var banner = cut.Find(".reconnecting-banner");
-        Assert.Contains("reconnecting", banner.TextContent, StringComparison.OrdinalIgnoreCase);
+        await Assert.That(banner.TextContent.ToLowerInvariant()).Contains("reconnecting");
     }
 
-    [Fact]
-    public void OpponentReconnecting_HidesOnReconnect()
+    [Test]
+    public async Task OpponentReconnecting_HidesOnReconnect()
     {
         OnlineGameService? service = null;
         var cut = RenderWithService(s =>
@@ -161,18 +160,16 @@ public class OnlineGamePageTests : BunitContext
             service = s;
         });
 
-        // Banner visible
-        Assert.NotNull(cut.Find(".reconnecting-banner"));
+        await Assert.That(cut.Find(".reconnecting-banner")).IsNotNull();
 
-        // Simulate reconnection
         service!.OpponentReconnecting = false;
         cut.Render();
 
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
     }
 
-    [Fact]
-    public void OpponentReconnecting_HidesSlowBanner()
+    [Test]
+    public async Task OpponentReconnecting_HidesSlowBanner()
     {
         var cut = RenderWithService(s =>
         {
@@ -180,12 +177,12 @@ public class OnlineGamePageTests : BunitContext
             s.OpponentReconnecting = true;
         });
 
-        Assert.NotNull(cut.Find(".reconnecting-banner"));
+        await Assert.That(cut.Find(".reconnecting-banner")).IsNotNull();
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".slow-banner"));
     }
 
-    [Fact]
-    public void OpponentDisconnected_HidesReconnectingBanner()
+    [Test]
+    public async Task OpponentDisconnected_HidesReconnectingBanner()
     {
         var cut = RenderWithService(s =>
         {
@@ -193,30 +190,28 @@ public class OnlineGamePageTests : BunitContext
             s.OpponentDisconnected = true;
         });
 
-        Assert.NotNull(cut.Find(".disconnect-banner"));
+        await Assert.That(cut.Find(".disconnect-banner")).IsNotNull();
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
     }
 
-    [Fact]
-    public void Refresh_NoStoredToken_RedirectsToLobby()
+    [Test]
+    public async Task Refresh_NoStoredToken_RedirectsToLobby()
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
-        // sessionStorage.getItem returns null (no token)
         JSInterop.Setup<string?>("sessionStorage.getItem", "ur_session_token").SetResult(null);
         Services.AddSingleton(sp =>
         {
             var nav = sp.GetRequiredService<NavigationManager>();
             return new OnlineGameService(nav, JSInterop.JSRuntime);
-            // NOT setting Rules/IsRunning — simulates a refresh with lost state
         });
 
         Render<OnlineGamePage>();
 
         var nav = Services.GetRequiredService<NavigationManager>();
-        Assert.EndsWith("/online", nav.Uri);
+        await Assert.That(nav.Uri).EndsWith("/online");
     }
 
-    [Fact]
+    [Test]
     public void NormalState_NoReconnectingOverlay()
     {
         var cut = RenderWithService(_ => { });

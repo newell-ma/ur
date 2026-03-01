@@ -10,26 +10,24 @@ public class BlazorPlayerTests
         return new GameStateBuilder(GameRules.Finkel).Build();
     }
 
-    [Fact]
+    [Test]
     public async Task ChooseMoveAsync_SetsAwaitingMove()
     {
         var player = new BlazorPlayer("Test");
         var state = CreateTestState();
         var moves = new List<Move> { new(Player.One, 0, -1, 3) };
 
-        Assert.False(player.IsAwaitingMove);
+        await Assert.That(player.IsAwaitingMove).IsFalse();
 
         var task = player.ChooseMoveAsync(state, moves, 4);
 
-        // After calling, should be awaiting
-        Assert.True(player.IsAwaitingMove);
+        await Assert.That(player.IsAwaitingMove).IsTrue();
 
-        // Complete to avoid hanging
         player.SubmitMove(moves[0]);
         await task;
     }
 
-    [Fact]
+    [Test]
     public async Task SubmitMove_CompletesTask()
     {
         var player = new BlazorPlayer("Test");
@@ -41,27 +39,27 @@ public class BlazorPlayerTests
         player.SubmitMove(expectedMove);
 
         var result = await task;
-        Assert.Equal(expectedMove, result);
+        await Assert.That(result).IsEqualTo(expectedMove);
     }
 
-    [Fact]
+    [Test]
     public async Task ShouldSkipAsync_SetsAwaitingSkip()
     {
         var player = new BlazorPlayer("Test");
         var state = CreateTestState();
         var moves = new List<Move> { new(Player.One, 0, -1, 3) };
 
-        Assert.False(player.IsAwaitingSkip);
+        await Assert.That(player.IsAwaitingSkip).IsFalse();
 
         var task = player.ShouldSkipAsync(state, moves, 4);
 
-        Assert.True(player.IsAwaitingSkip);
+        await Assert.That(player.IsAwaitingSkip).IsTrue();
 
         player.SubmitSkipDecision(false);
         await task;
     }
 
-    [Fact]
+    [Test]
     public async Task SubmitSkipDecision_CompletesTask()
     {
         var player = new BlazorPlayer("Test");
@@ -72,10 +70,10 @@ public class BlazorPlayerTests
         player.SubmitSkipDecision(true);
 
         var result = await task;
-        Assert.True(result);
+        await Assert.That(result).IsTrue();
     }
 
-    [Fact]
+    [Test]
     public async Task Cancel_CancelsPendingMove()
     {
         var player = new BlazorPlayer("Test");
@@ -85,10 +83,10 @@ public class BlazorPlayerTests
         var task = player.ChooseMoveAsync(state, moves, 4);
         player.Cancel();
 
-        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
+        await Assert.That(async () => await task).ThrowsException();
     }
 
-    [Fact]
+    [Test]
     public async Task Cancel_CancelsPendingSkip()
     {
         var player = new BlazorPlayer("Test");
@@ -98,10 +96,10 @@ public class BlazorPlayerTests
         var task = player.ShouldSkipAsync(state, moves, 4);
         player.Cancel();
 
-        await Assert.ThrowsAsync<TaskCanceledException>(() => task);
+        await Assert.That(async () => await task).ThrowsException();
     }
 
-    [Fact]
+    [Test]
     public async Task PendingMoves_StoredDuringAwait()
     {
         var player = new BlazorPlayer("Test");
@@ -114,16 +112,15 @@ public class BlazorPlayerTests
 
         var task = player.ChooseMoveAsync(state, moves, 4);
 
-        Assert.Equal(moves, player.PendingMoves);
+        await Assert.That(player.PendingMoves).IsEquivalentTo(moves);
 
         player.SubmitMove(moves[0]);
         await task;
 
-        // After completion, PendingMoves should be cleared
-        Assert.Empty(player.PendingMoves);
+        await Assert.That(player.PendingMoves).IsEmpty();
     }
 
-    [Fact]
+    [Test]
     public async Task PendingRoll_StoredDuringAwait()
     {
         var player = new BlazorPlayer("Test");
@@ -132,7 +129,7 @@ public class BlazorPlayerTests
 
         var task = player.ChooseMoveAsync(state, moves, 3);
 
-        Assert.Equal(3, player.PendingRoll);
+        await Assert.That(player.PendingRoll).IsEqualTo(3);
 
         player.SubmitMove(moves[0]);
         await task;
