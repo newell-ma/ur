@@ -239,8 +239,8 @@
 
     private void UnsubscribeEvents()
     {
-        Online.OnChange = null;
-        Online.OnDiceRolled = null;
+        if (Online.OnChange == (Func<Task>)HandleStateChanged) Online.OnChange = null;
+        if (Online.OnDiceRolled == (Func<Task>)HandleDiceRolled) Online.OnDiceRolled = null;
     }
 
     private async Task HandleStateChanged()

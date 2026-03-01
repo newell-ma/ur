@@ -102,7 +102,8 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         _hub.On<Player, int>("ReceiveDiceRolled", async (player, roll) =>
         {
             LastRollDisplay = roll;
-            EffectiveRollDisplay = State?.EffectiveRoll ?? roll;
+            // Compute effective roll from rules (State.EffectiveRoll is stale — it's from the last ReceiveStateChanged)
+            EffectiveRollDisplay = (roll == 0 && Rules?.ZeroRollValue is int replacement) ? replacement : roll;
             DiceRolled = true;
             IndividualDice = GenerateIndividualDice(roll, Rules?.DiceCount ?? 4);
             var playerName = player == Player.One ? Player1Name : Player2Name;

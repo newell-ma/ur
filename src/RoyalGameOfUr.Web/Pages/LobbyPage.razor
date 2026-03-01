@@ -247,8 +247,10 @@
 
     public async ValueTask DisposeAsync()
     {
-        Online.OnChange = null;
-        Online.OnGameStarting = null;
+        // Only null callbacks that are still ours — Blazor creates the new page
+        // before disposing the old one, so OnlineGamePage may have already subscribed.
+        if (Online.OnChange == (Func<Task>)HandleRoomUpdated) Online.OnChange = null;
+        if (Online.OnGameStarting == (Func<Task>)HandleGameStarting) Online.OnGameStarting = null;
 
         if (_inRoom && !Online.IsRunning)
         {
