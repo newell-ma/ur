@@ -1,6 +1,5 @@
 /* === Piece Styling === */
 .piece {
-    transition: transform 0.4s ease-out;
     cursor: default;
 }
 
@@ -39,6 +38,16 @@
 /* Rosette landing glow */
 .piece.rosette-land {
     animation: rosette-land 0.6s ease-out;
+}
+
+/* Board entry animation */
+.piece.board-enter {
+    animation: board-enter 0.8s ease-out;
+}
+
+/* Borne off exit animation */
+.piece.borne-off {
+    animation: borne-off 0.5s ease-out forwards;
 }
 
 /* Last moved piece highlight */

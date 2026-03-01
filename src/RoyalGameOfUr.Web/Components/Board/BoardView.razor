@@ -1,3 +1,4 @@
+@inject IJSRuntime JS
 @* SVG root: cells layer + pieces layer + start/borne-off areas *@
 
 <div class="board-wrapper">
@@ -19,6 +20,37 @@
                       IsRosette="cell.IsRosette"
                       IsValidDestination="IsCellValidDestination(cell)"
                       OnClick="@(() => HandleCellClick(cell))" />
+        }
+
+        @* Ghost pieces for exit animations (rendered first so real pieces are on top) *@
+        @if (State is not null && LastMove is { } ghostMove && LastOutcome is { } ghostOutcome)
+        {
+            @if (ghostOutcome.HasCapture)
+            {
+                var capturedPlayer = ghostMove.Player == Player.One ? Player.Two : Player.One;
+                var (gx, gy) = Mapper.GetPieceCenterWithOffset(capturedPlayer, ghostMove.To, 0);
+                if (IsCrossZonePosition(capturedPlayer, ghostMove.To))
+                {
+                    gx += capturedPlayer == Player.One ? -10 : 10;
+                }
+                <PieceView @key="@("ghost-captured")"
+                           CenterX="gx" CenterY="gy"
+                           Player="capturedPlayer"
+                           CssAnimation="captured" />
+            }
+
+            @if (ghostOutcome.Result is MoveResult.BorneOff or MoveResult.BorneOffAndExtraTurn or MoveResult.Win)
+            {
+                var (gx, gy) = Mapper.GetPieceCenterWithOffset(ghostMove.Player, ghostMove.From, 0);
+                if (IsCrossZonePosition(ghostMove.Player, ghostMove.From))
+                {
+                    gx += ghostMove.Player == Player.One ? -10 : 10;
+                }
+                <PieceView @key="@("ghost-borne-off")"
+                           CenterX="gx" CenterY="gy"
+                           Player="ghostMove.Player"
+                           PieceId="ghostMove.PieceIndex" />
+            }
         }
 
         @* Pieces layer *@
@@ -48,8 +80,10 @@
                     bool isClickable = IsPieceClickable(player, piece);
                     bool isSelected = _selectedPieceKey == (player, piece.Id);
 
-                    <PieceView CenterX="px" CenterY="py"
+                    <PieceView @key="(player, piece.Id)"
+                               CenterX="px" CenterY="py"
                                Player="player"
+                               PieceId="piece.Id"
                                IsClickable="isClickable"
                                IsSelected="isSelected"
                                CssAnimation="@GetPieceAnimation(player, piece)"
@@ -83,6 +117,47 @@
     [Parameter] public EventCallback<Move> OnMoveSelected { get; set; }
 
     private (Player Player, int Id)? _selectedPieceKey;
+    private Move? _lastAnimatedMove;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (LastMove is not { } move || LastOutcome is null)
+            return;
+        if (move == _lastAnimatedMove)
+            return;
+        _lastAnimatedMove = move;
+
+        var waypoints = ComputeWaypoints(move);
+        if (waypoints.Count < 2)
+            return;
+
+        bool fadeOut = move.To >= Rules.PathLength;
+        var selector = $"g[data-player='{(int)move.Player}'][data-piece-id='{move.PieceIndex}']";
+        int durationMs = Math.Max(200, waypoints.Count * 120);
+
+        await JS.InvokeVoidAsync("urAnimations.animateAlongPath", selector, waypoints, durationMs, fadeOut);
+    }
+
+    private List<object> ComputeWaypoints(Move move)
+    {
+        var waypoints = new List<object>();
+
+        int start = Math.Max(move.From, 0); // -1 → 0 for board entry
+        int end = Math.Min(move.To, Rules.PathLength - 1);
+
+        // Support backward moves (Tournament)
+        int step = start <= end ? 1 : -1;
+
+        for (int pos = start; pos != end + step; pos += step)
+        {
+            var (x, y) = Mapper.GetPieceCenter(move.Player, pos);
+            if (IsCrossZonePosition(move.Player, pos))
+                x += move.Player == Player.One ? -10 : 10;
+            waypoints.Add(new { x, y });
+        }
+
+        return waypoints;
+    }
 
     private bool IsCellValidDestination(BoardCell cell)
     {
@@ -166,20 +241,18 @@
         if (LastMove is not { } move || LastOutcome is not { } outcome)
             return "";
 
-        // Captured opponent piece → fade out
-        if (outcome.HasCapture
-            && player != move.Player
-            && piece.Id == outcome.CapturedPieceIndex)
-            return "captured";
-
         // The piece that just moved
         if (player == move.Player && piece.Id == move.PieceIndex)
         {
-            // Landed on rosette → gold rosette glow
+            // Landed on rosette → gold rosette glow (takes priority)
             if (outcome.Result is MoveResult.ExtraTurn
                                or MoveResult.CapturedAndExtraTurn
                                or MoveResult.BorneOffAndExtraTurn)
                 return "rosette-land";
+
+            // Entered the board from start
+            if (move.From == -1)
+                return "board-enter";
 
             // Normal move → subtle glow
             return "last-moved";

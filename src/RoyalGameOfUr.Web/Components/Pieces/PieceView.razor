@@ -1,6 +1,7 @@
 @* SVG circle piece with CSS transition on transform *@
 
 <g class="piece @(IsClickable ? "clickable" : "") @(IsSelected ? "selected" : "") @CssAnimation"
+   data-player="@((int)Player)" data-piece-id="@PieceId"
    transform="translate(@CenterX.ToString("F1"), @CenterY.ToString("F1"))"
    @onclick="HandleClick">
 
@@ -17,6 +18,7 @@
     [Parameter] public double CenterX { get; set; }
     [Parameter] public double CenterY { get; set; }
     [Parameter] public Player Player { get; set; }
+    [Parameter] public int PieceId { get; set; }
     [Parameter] public bool IsClickable { get; set; }
     [Parameter] public bool IsSelected { get; set; }
     [Parameter] public int StackCount { get; set; } = 1;
