@@ -41,6 +41,11 @@
     animation: rosette-land 0.6s ease-out;
 }
 
+/* Last moved piece highlight */
+.piece.last-moved {
+    animation: glow 1s ease-in-out;
+}
+
 /* Stack count badge */
 .stack-count {
     fill: var(--ivory);

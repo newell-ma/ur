@@ -90,6 +90,8 @@
                Rules="Online.Rules"
                Mapper="_mapper"
                ValidMoves="@(Online.IsMyTurn ? Online.ValidMoves : [])"
+               LastMove="Online.LastMove"
+               LastOutcome="Online.LastOutcome"
                OnMoveSelected="HandleMoveSelected" />
 }
 

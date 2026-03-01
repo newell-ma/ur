@@ -52,6 +52,7 @@
                                Player="player"
                                IsClickable="isClickable"
                                IsSelected="isSelected"
+                               CssAnimation="@GetPieceAnimation(player, piece)"
                                StackCount="@(Rules.AllowStacking ? State.PieceCountAt(player, piece.Position) : 1)"
                                ShowStackCount="@(Rules.AllowStacking && countSoFar == 0 && State.PieceCountAt(player, piece.Position) > 1)"
                                OnClick="@(() => HandlePieceClick(player, piece))" />
@@ -77,6 +78,8 @@
     [Parameter] public GameRules Rules { get; set; } = GameRules.Finkel;
     [Parameter] public BoardCoordinateMapper Mapper { get; set; } = default!;
     [Parameter] public IReadOnlyList<Move> ValidMoves { get; set; } = [];
+    [Parameter] public Move? LastMove { get; set; }
+    [Parameter] public MoveOutcome? LastOutcome { get; set; }
     [Parameter] public EventCallback<Move> OnMoveSelected { get; set; }
 
     private (Player Player, int Id)? _selectedPieceKey;
@@ -156,6 +159,33 @@
                 }
             }
         }
+    }
+
+    private string GetPieceAnimation(Player player, Piece piece)
+    {
+        if (LastMove is not { } move || LastOutcome is not { } outcome)
+            return "";
+
+        // Captured opponent piece → fade out
+        if (outcome.HasCapture
+            && player != move.Player
+            && piece.Id == outcome.CapturedPieceIndex)
+            return "captured";
+
+        // The piece that just moved
+        if (player == move.Player && piece.Id == move.PieceIndex)
+        {
+            // Landed on rosette → gold rosette glow
+            if (outcome.Result is MoveResult.ExtraTurn
+                               or MoveResult.CapturedAndExtraTurn
+                               or MoveResult.BorneOffAndExtraTurn)
+                return "rosette-land";
+
+            // Normal move → subtle glow
+            return "last-moved";
+        }
+
+        return "";
     }
 
     private async Task HandleStartPieceClick(Player player)
