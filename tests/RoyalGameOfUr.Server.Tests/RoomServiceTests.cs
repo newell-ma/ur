@@ -35,6 +35,44 @@ public class RoomServiceTests
     }
 
     [Test]
+    public async Task CreateRoom_EmptyName_ReturnsError()
+    {
+        var result = _service.CreateRoom("Finkel", "", "conn1");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).IsEqualTo("Player name is required");
+    }
+
+    [Test]
+    public async Task CreateRoom_WhitespaceName_ReturnsError()
+    {
+        var result = _service.CreateRoom("Finkel", "   ", "conn1");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).IsEqualTo("Player name is required");
+    }
+
+    [Test]
+    public async Task CreateRoom_TooLongName_ReturnsError()
+    {
+        var result = _service.CreateRoom("Finkel", new string('A', 21), "conn1");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).Contains("20 characters or fewer");
+    }
+
+    [Test]
+    public async Task JoinRoom_EmptyName_ReturnsError()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+
+        var result = await _service.JoinRoom(createResult.Code, "", "conn2");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).IsEqualTo("Player name is required");
+    }
+
+    [Test]
     public async Task JoinRoom_NotFound_ReturnsError()
     {
         var result = await _service.JoinRoom("XXXX", "Bob", "conn2");

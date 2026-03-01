@@ -12,22 +12,40 @@ public sealed class RoomService : IRoomService
     private readonly ConcurrentDictionary<string, string> _connectionToRoom = new();
     private readonly ConcurrentDictionary<string, string> _tokenToRoom = new();
 
+    private const int MaxNameLength = 20;
+
     public RoomService(RoomManager roomManager, IGameBroadcaster broadcaster)
     {
         _roomManager = roomManager;
         _broadcaster = broadcaster;
     }
 
+    private static string? ValidatePlayerName(ref string name)
+    {
+        name = name.Trim();
+        if (name.Length == 0) return "Player name is required";
+        if (name.Length > MaxNameLength) return $"Player name must be {MaxNameLength} characters or fewer";
+        return null;
+    }
+
     public CreateRoomResult CreateRoom(string rulesName, string playerName, string connectionId)
     {
+        var error = ValidatePlayerName(ref playerName);
+        if (error is not null)
+            return new CreateRoomResult(false, error, "", "", "");
+
         var room = _roomManager.CreateRoom(rulesName, playerName, connectionId);
         _connectionToRoom[connectionId] = room.Code;
         _tokenToRoom[room.Player1Token!] = room.Code;
-        return new CreateRoomResult(room.Code, room.RulesName, room.Player1Token!);
+        return new CreateRoomResult(true, "", room.Code, room.RulesName, room.Player1Token!);
     }
 
     public async Task<JoinRoomResult> JoinRoom(string code, string playerName, string connectionId)
     {
+        var error = ValidatePlayerName(ref playerName);
+        if (error is not null)
+            return new JoinRoomResult(false, error, code, "", "", "");
+
         var room = _roomManager.GetRoom(code);
         if (room is null)
             return new JoinRoomResult(false, "Room not found", code, "", "", "");

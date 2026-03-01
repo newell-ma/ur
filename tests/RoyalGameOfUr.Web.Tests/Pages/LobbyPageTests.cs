@@ -13,10 +13,11 @@ public class LobbyPageTests : BunitContext
 
     private IRenderedComponent<LobbyPage> RenderLobby()
     {
+        JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddSingleton(sp =>
         {
             var nav = sp.GetRequiredService<NavigationManager>();
-            _service = new OnlineGameService(nav);
+            _service = new OnlineGameService(nav, JSInterop.JSRuntime);
             return _service;
         });
         return Render<LobbyPage>();
@@ -70,5 +71,15 @@ public class LobbyPageTests : BunitContext
 
         // Should NOT call LeaveRoomAsync because game is running
         Assert.Equal("TEST", _service.RoomCode);
+    }
+
+    [Fact]
+    public void Init_ClearsStoredToken()
+    {
+        var removeInvocation = JSInterop.SetupVoid("sessionStorage.removeItem", "ur_session_token");
+
+        RenderLobby();
+
+        Assert.Single(removeInvocation.Invocations);
     }
 }

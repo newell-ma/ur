@@ -5,6 +5,13 @@
 
 <h1>The Royal Game of Ur</h1>
 
+@if (_rejoining)
+{
+    <div class="reconnecting-overlay">
+        <p>Reconnecting...</p>
+    </div>
+}
+
 <div class="online-info-bar">
     <span class="room-label">Room: <strong>@Online.RoomCode</strong></span>
     <span class="player-label">
@@ -183,22 +190,43 @@
         font-style: normal;
         background: var(--terracotta);
     }
+
+    .reconnecting-overlay {
+        text-align: center;
+        padding: 2rem;
+        color: var(--gold);
+        font-size: 1.2rem;
+        font-style: italic;
+    }
 </style>
 
 @code {
     private BoardCoordinateMapper? _mapper;
     private bool _diceRolling;
+    private bool _rejoining;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        if (Online.Rules is null || !Online.IsRunning)
+        if (Online.Rules is not null && Online.IsRunning)
         {
-            Nav.NavigateTo("/online");
+            _mapper = new BoardCoordinateMapper(Online.Rules);
+            SubscribeEvents();
             return;
         }
 
-        _mapper = new BoardCoordinateMapper(Online.Rules);
-        SubscribeEvents();
+        _rejoining = true;
+        StateHasChanged();
+        var success = await Online.TryRejoinAsync();
+        _rejoining = false;
+
+        if (success && Online.Rules is not null)
+        {
+            _mapper = new BoardCoordinateMapper(Online.Rules);
+            SubscribeEvents();
+            return;
+        }
+
+        Nav.NavigateTo("/online");
     }
 
     private void SubscribeEvents()

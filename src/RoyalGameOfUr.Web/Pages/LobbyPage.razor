@@ -198,6 +198,7 @@
         Online.OnRoomUpdated += HandleRoomUpdated;
         Online.OnGameStarting += HandleGameStarting;
         Online.Reset();
+        await Online.ClearStoredTokenAsync();
         await Online.ConnectAsync();
     }
 

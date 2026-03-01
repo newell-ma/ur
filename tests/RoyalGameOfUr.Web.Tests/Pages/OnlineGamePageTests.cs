@@ -11,11 +11,12 @@ public class OnlineGamePageTests : BunitContext
 {
     private IRenderedComponent<OnlineGamePage> RenderWithService(Action<OnlineGameService> configure)
     {
+        JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddSingleton(sp =>
         {
             var nav = sp.GetRequiredService<NavigationManager>();
-            var service = new OnlineGameService(nav);
-            // Minimum state so OnInitialized doesn't redirect away
+            var service = new OnlineGameService(nav, JSInterop.JSRuntime);
+            // Minimum state so OnInitializedAsync doesn't redirect away
             service.Rules = GameRules.Finkel;
             service.IsRunning = true;
             service.RoomCode = "TEST";
@@ -194,5 +195,32 @@ public class OnlineGamePageTests : BunitContext
 
         Assert.NotNull(cut.Find(".disconnect-banner"));
         Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-banner"));
+    }
+
+    [Fact]
+    public void Refresh_NoStoredToken_RedirectsToLobby()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        // sessionStorage.getItem returns null (no token)
+        JSInterop.Setup<string?>("sessionStorage.getItem", "ur_session_token").SetResult(null);
+        Services.AddSingleton(sp =>
+        {
+            var nav = sp.GetRequiredService<NavigationManager>();
+            return new OnlineGameService(nav, JSInterop.JSRuntime);
+            // NOT setting Rules/IsRunning — simulates a refresh with lost state
+        });
+
+        Render<OnlineGamePage>();
+
+        var nav = Services.GetRequiredService<NavigationManager>();
+        Assert.EndsWith("/online", nav.Uri);
+    }
+
+    [Fact]
+    public void NormalState_NoReconnectingOverlay()
+    {
+        var cut = RenderWithService(_ => { });
+
+        Assert.Throws<Bunit.ElementNotFoundException>(() => cut.Find(".reconnecting-overlay"));
     }
 }

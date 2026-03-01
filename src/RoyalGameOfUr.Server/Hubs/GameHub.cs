@@ -16,7 +16,8 @@ public sealed class GameHub : Hub
     public async Task<CreateRoomResult> CreateRoom(string rulesName, string playerName)
     {
         var result = _roomService.CreateRoom(rulesName, playerName, Context.ConnectionId);
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"room-{result.Code}");
+        if (result.Success)
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"room-{result.Code}");
         return result;
     }
 

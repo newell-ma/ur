@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.JSInterop;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Engine.Dtos;
 
@@ -8,7 +9,10 @@ namespace RoyalGameOfUr.Web.Services;
 public sealed class OnlineGameService : IAsyncDisposable, IDisposable
 {
     private readonly NavigationManager _nav;
+    private readonly IJSRuntime _js;
     private HubConnection? _hub;
+
+    private const string TokenKey = "ur_session_token";
 
     // Room state
     public string? RoomCode { get; internal set; }
@@ -56,9 +60,10 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     public event Func<Task>? OnRoomUpdated;
     public event Func<Task>? OnGameStarting;
 
-    public OnlineGameService(NavigationManager nav)
+    public OnlineGameService(NavigationManager nav, IJSRuntime js)
     {
         _nav = nav;
+        _js = js;
     }
 
     public async Task ConnectAsync()
@@ -153,6 +158,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             ValidMoves = [];
             var playerName = winner == Player.One ? Player1Name : Player2Name;
             StatusMessage = $"{playerName} wins the game!";
+            await ClearTokenAsync();
             if (OnGameOverEvent is not null) await OnGameOverEvent.Invoke();
         });
 
@@ -200,6 +206,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             IsAwaitingSkip = false;
             ValidMoves = [];
             StatusMessage = "Opponent disconnected";
+            await ClearTokenAsync();
             if (OnStateChanged is not null) await OnStateChanged.Invoke();
         });
 
@@ -230,6 +237,51 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         }
     }
 
+    private async Task SaveTokenAsync() =>
+        await _js.InvokeVoidAsync("sessionStorage.setItem", TokenKey, SessionToken);
+
+    private async Task<string?> LoadTokenAsync() =>
+        await _js.InvokeAsync<string?>("sessionStorage.getItem", TokenKey);
+
+    private async Task ClearTokenAsync() =>
+        await _js.InvokeVoidAsync("sessionStorage.removeItem", TokenKey);
+
+    public async Task ClearStoredTokenAsync() => await ClearTokenAsync();
+
+    public async Task<bool> TryRejoinAsync()
+    {
+        try
+        {
+            var token = await LoadTokenAsync();
+            if (string.IsNullOrEmpty(token)) return false;
+
+            await ConnectAsync();
+            var result = await _hub!.InvokeAsync<RejoinResult>("Rejoin", token);
+
+            if (!result.Success)
+            {
+                await ClearTokenAsync();
+                return false;
+            }
+
+            RoomCode = result.Code;
+            RulesName = result.RulesName;
+            Rules = GameStateMapper.ResolveRules(result.RulesName);
+            Player1Name = result.Player1Name;
+            Player2Name = result.Player2Name;
+            LocalPlayer = result.PlayerSide == "One" ? Player.One : Player.Two;
+            LocalPlayerName = LocalPlayer == Player.One ? Player1Name : Player2Name;
+            IsRunning = true;
+            SessionToken = token;
+            return true;
+        }
+        catch
+        {
+            await ClearTokenAsync();
+            return false;
+        }
+    }
+
     public async Task<(bool Success, string? Error)> CreateRoomAsync(string rulesName, string playerName)
     {
         if (_hub is null) return (false, "Not connected");
@@ -239,11 +291,15 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         LocalPlayer = Player.One;
 
         var result = await _hub.InvokeAsync<CreateRoomResult>("CreateRoom", rulesName, playerName);
+        if (!result.Success)
+            return (false, result.Error);
+
         RoomCode = result.Code;
         RulesName = result.RulesName;
         Rules = GameStateMapper.ResolveRules(result.RulesName);
         Player1Name = playerName;
         SessionToken = result.SessionToken;
+        await SaveTokenAsync();
         return (true, null);
     }
 
@@ -267,6 +323,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         OpponentName = result.HostName;
         OpponentJoined = true;
         SessionToken = result.SessionToken;
+        await SaveTokenAsync();
         return (true, null);
     }
 
@@ -294,6 +351,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     public async Task LeaveRoomAsync()
     {
         if (RoomCode is null) return;
+        await ClearTokenAsync();
         if (_hub is not null)
         {
             try { await _hub.SendAsync("LeaveRoom"); }
@@ -304,6 +362,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
 
     public async Task LeaveGameAsync()
     {
+        await ClearTokenAsync();
         if (_hub is not null)
         {
             _hub.Reconnected -= OnReconnected;
@@ -363,7 +422,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     }
 
     // DTOs for hub invoke results
-    private record CreateRoomResult(string Code, string RulesName, string SessionToken);
+    private record CreateRoomResult(bool Success, string Error, string Code, string RulesName, string SessionToken);
     private record JoinRoomResult(bool Success, string Error, string Code, string RulesName, string HostName, string SessionToken);
     private record RejoinResult(bool Success, string Error, string Code, string RulesName, string Player1Name, string Player2Name, string PlayerSide);
 }

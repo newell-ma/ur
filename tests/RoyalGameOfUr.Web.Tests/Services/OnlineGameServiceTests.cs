@@ -11,7 +11,8 @@ public class OnlineGameServiceTests : BunitContext
     private OnlineGameService CreateService()
     {
         var nav = Services.GetRequiredService<NavigationManager>();
-        return new OnlineGameService(nav);
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        return new OnlineGameService(nav, JSInterop.JSRuntime);
     }
 
     [Fact]
@@ -123,5 +124,30 @@ public class OnlineGameServiceTests : BunitContext
         Assert.Null(service.ErrorMessage);
         Assert.False(service.DiceRolled);
         Assert.Null(service.LocalPlayer);
+    }
+
+    [Fact]
+    public async Task TryRejoinAsync_NoStoredToken_ReturnsFalse()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>();
+        JSInterop.Setup<string?>("sessionStorage.getItem", "ur_session_token").SetResult(null);
+        var service = new OnlineGameService(nav, JSInterop.JSRuntime);
+
+        var result = await service.TryRejoinAsync();
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public async Task ClearStoredTokenAsync_RemovesFromSessionStorage()
+    {
+        var nav = Services.GetRequiredService<NavigationManager>();
+        var removeInvocation = JSInterop.SetupVoid("sessionStorage.removeItem", "ur_session_token");
+        removeInvocation.SetVoidResult();
+        var service = new OnlineGameService(nav, JSInterop.JSRuntime);
+
+        await service.ClearStoredTokenAsync();
+
+        Assert.Single(removeInvocation.Invocations);
     }
 }
