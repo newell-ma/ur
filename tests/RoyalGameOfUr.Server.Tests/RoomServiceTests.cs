@@ -69,6 +69,31 @@ public class RoomServiceTests
     }
 
     [Test]
+    public async Task CreateRoom_ExactlyMaxLengthName_Succeeds()
+    {
+        var result = _service.CreateRoom("Finkel", new string('A', 20), "conn1");
+
+        await Assert.That(result.Success).IsTrue();
+    }
+
+    [Test]
+    public async Task CreateRoom_SpecialCharacters_Succeeds()
+    {
+        var result = _service.CreateRoom("Finkel", "Player-1 (test)", "conn1");
+
+        await Assert.That(result.Success).IsTrue();
+    }
+
+    [Test]
+    public async Task CreateRoom_InvalidRules_ReturnsError()
+    {
+        var result = _service.CreateRoom("Bogus", "Alice", "conn1");
+
+        await Assert.That(result.Success).IsFalse();
+        await Assert.That(result.Error).Contains("Unknown ruleset");
+    }
+
+    [Test]
     public async Task JoinRoom_EmptyName_ReturnsError()
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
@@ -541,6 +566,6 @@ public class RoomServiceTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         while (!condition())
-            await Task.Delay(1, cts.Token);
+            await Task.Delay(10, cts.Token);
     }
 }

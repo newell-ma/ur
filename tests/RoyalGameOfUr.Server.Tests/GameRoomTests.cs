@@ -353,6 +353,6 @@ public class GameRoomTests
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         while (!condition())
-            await Task.Delay(1, cts.Token);
+            await Task.Delay(10, cts.Token);
     }
 }

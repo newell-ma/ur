@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using RoyalGameOfUr.Engine;
+using RoyalGameOfUr.Engine.Dtos;
 using RoyalGameOfUr.Server.Hubs;
 using RoyalGameOfUr.Server.Rooms;
 
@@ -36,6 +37,9 @@ public sealed class RoomService : IRoomService
         var error = ValidatePlayerName(ref playerName);
         if (error is not null)
             return new CreateRoomResult(false, error, "", "", "");
+
+        if (!GameStateMapper.IsValidRulesName(rulesName))
+            return new CreateRoomResult(false, $"Unknown ruleset: '{rulesName}'", "", "", "");
 
         var room = _roomManager.CreateRoom(rulesName, playerName, connectionId);
         _connectionToRoom[connectionId] = room.Code;

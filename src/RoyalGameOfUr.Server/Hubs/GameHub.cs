@@ -25,10 +25,7 @@ public sealed class GameHub : Hub
     {
         var result = await _roomService.JoinRoom(code, playerName, Context.ConnectionId);
         if (result.Success)
-        {
-            var room = _roomService.GetRoom(code)!;
-            await Groups.AddToGroupAsync(Context.ConnectionId, room.GroupName);
-        }
+            await Groups.AddToGroupAsync(Context.ConnectionId, _roomService.GetRoom(code)!.GroupName);
         return result;
     }
 

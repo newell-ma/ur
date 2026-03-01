@@ -52,6 +52,9 @@ public static class GameStateMapper
         "Masters" => GameRules.Masters,
         "Blitz" => GameRules.Blitz,
         "Tournament" => GameRules.Tournament,
-        _ => GameRules.Finkel
+        _ => throw new ArgumentException($"Unknown ruleset: '{name}'", nameof(name))
     };
+
+    public static bool IsValidRulesName(string name) =>
+        name is "Finkel" or "Simple" or "Masters" or "Blitz" or "Tournament";
 }

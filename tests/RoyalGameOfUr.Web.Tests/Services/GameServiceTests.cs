@@ -9,14 +9,19 @@ public class GameServiceTests
     public async Task StartGameAsync_InitializesState()
     {
         var svc = new GameService();
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        svc.OnChange = () =>
+        {
+            if (svc.State is not null) ready.TrySetResult();
+            return Task.CompletedTask;
+        };
 
         await svc.StartGameAsync(
             GameRules.Finkel,
             PlayerType.Human, "Alice",
             PlayerType.Human, "Bob");
 
-        // Give the background runner a moment to fire OnStateChanged
-        await Task.Delay(200);
+        await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await Assert.That(svc.State).IsNotNull();
         await Assert.That(svc.IsRunning).IsTrue();
@@ -47,13 +52,19 @@ public class GameServiceTests
     public async Task StopGame_CleansUp()
     {
         var svc = new GameService();
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        svc.OnChange = () =>
+        {
+            if (svc.State is not null) ready.TrySetResult();
+            return Task.CompletedTask;
+        };
 
         await svc.StartGameAsync(
             GameRules.Finkel,
             PlayerType.Human, "Alice",
             PlayerType.Human, "Bob");
 
-        await Task.Delay(100);
+        await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         svc.StopGame();
 

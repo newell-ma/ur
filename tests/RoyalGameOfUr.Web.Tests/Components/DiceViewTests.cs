@@ -55,6 +55,34 @@ public class DiceViewTests : BunitContext
     }
 
     [Test]
+    public async Task DisplayTotal_RendersTotal()
+    {
+        var dice = new[] { 1, 0, 1, 0 };
+
+        var cut = Render<DiceView>(parameters => parameters
+            .Add(p => p.IndividualDice, dice)
+            .Add(p => p.Total, 2)
+            .Add(p => p.EffectiveTotal, 2));
+
+        var total = cut.Find(".dice-total");
+        await Assert.That(total.TextContent).IsEqualTo("2");
+    }
+
+    [Test]
+    public async Task DisplayTotal_ShowsEffectiveWhenDifferent()
+    {
+        var dice = new[] { 0, 0, 0 };
+
+        var cut = Render<DiceView>(parameters => parameters
+            .Add(p => p.IndividualDice, dice)
+            .Add(p => p.Total, 0)
+            .Add(p => p.EffectiveTotal, 4));
+
+        var total = cut.Find(".dice-total");
+        await Assert.That(total.TextContent).IsEqualTo("0 (4)");
+    }
+
+    [Test]
     public async Task NullDice_RendersNothing()
     {
         var cut = Render<DiceView>(parameters => parameters
