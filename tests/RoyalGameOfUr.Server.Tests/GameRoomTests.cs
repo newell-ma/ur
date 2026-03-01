@@ -208,11 +208,14 @@ public class GameRoomTests
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
 
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        room.OnGameCompleted = _ => completed.TrySetResult();
+
         room.Start(broadcaster);
         await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         room.Stop();
-        await WaitUntilAsync(() => room.IsFinished);
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await broadcaster.DidNotReceive().BroadcastError(Arg.Any<string>(), Arg.Any<string>());
     }
@@ -347,12 +350,5 @@ public class GameRoomTests
         broadcaster.When(b => b.SendToPlayer(Arg.Any<string>(), "ReceiveMoveRequired", Arg.Any<object?[]>()))
             .Do(_ => tcs.TrySetResult());
         return tcs.Task;
-    }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-            await Task.Delay(10, cts.Token);
     }
 }
