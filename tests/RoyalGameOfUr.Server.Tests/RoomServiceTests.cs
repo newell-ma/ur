@@ -434,6 +434,91 @@ public class RoomServiceTests
         await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
     }
 
+    // --- HandleLeave (intentional leave) tests ---
+
+    [Test]
+    public async Task HandleLeave_UnknownConnection_DoesNothing()
+    {
+        // Should not throw
+        await _service.HandleLeave("unknown-conn");
+    }
+
+    [Test]
+    public async Task HandleLeave_DuringGame_ImmediateTeardown()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await _service.HandleLeave("conn1");
+
+        // Room should be immediately removed — no grace period
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task HandleLeave_DuringGame_NotifiesOpponentDisconnected()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
+        _broadcaster.ClearReceivedCalls();
+
+        await _service.HandleLeave("conn1");
+
+        // Opponent should get "Disconnected" directly, NOT "Reconnecting"
+        await _broadcaster.Received().SendToPlayer(
+            "conn2",
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+
+        await _broadcaster.DidNotReceive().SendToPlayer(
+            "conn2",
+            "ReceiveOpponentReconnecting",
+            Arg.Any<object?[]>());
+    }
+
+    [Test]
+    public async Task HandleLeave_BeforeGameStarts_ImmediateTeardown()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+
+        await _service.HandleLeave("conn1");
+
+        await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    [Test]
+    public async Task HandleLeave_ThenDisconnect_SecondIsNoOp()
+    {
+        var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
+        await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
+        await _service.TryStartGame(createResult.Code, "conn1");
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await _service.HandleLeave("conn1");
+        _broadcaster.ClearReceivedCalls();
+
+        // Simulate OnDisconnectedAsync firing after LeaveRoom
+        await _service.HandleDisconnect("conn1");
+
+        // No additional notifications should be sent
+        await _broadcaster.DidNotReceive().SendToPlayer(
+            Arg.Any<string>(),
+            "ReceiveOpponentDisconnected",
+            Arg.Any<object?[]>());
+        await _broadcaster.DidNotReceive().SendToPlayer(
+            Arg.Any<string>(),
+            "ReceiveOpponentReconnecting",
+            Arg.Any<object?[]>());
+    }
+
     // --- Helpers ---
 
     private static Task WhenGameLoopReady(IGameBroadcaster broadcaster)

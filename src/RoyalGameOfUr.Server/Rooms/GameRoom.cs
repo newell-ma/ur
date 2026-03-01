@@ -24,7 +24,7 @@ public sealed class GameRoom : IGameObserver
     public string? Player2Token { get; private set; }
     public GameStateDto? LastStateDto { get; private set; }
     public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(30);
-    public Action<string, string>? OnGracePeriodExpired { get; set; }
+    public Func<string, string, Task>? OnGracePeriodExpired { get; set; }
 
     public GameRoom(string code, string rulesName, string hostName, string hostConnectionId, TimeProvider? timeProvider = null)
     {
@@ -76,7 +76,9 @@ public sealed class GameRoom : IGameObserver
 
         _graceTimer = _timeProvider.CreateTimer(_ =>
         {
-            OnGracePeriodExpired?.Invoke(roomCode, connId);
+            var callback = OnGracePeriodExpired;
+            if (callback is not null)
+                _ = callback(roomCode, connId);
         }, null, GracePeriod, Timeout.InfiniteTimeSpan);
     }
 
@@ -145,8 +147,13 @@ public sealed class GameRoom : IGameObserver
         }, CancellationToken.None);
     }
 
+    private int _stopped;
+
     public void Stop()
     {
+        if (Interlocked.Exchange(ref _stopped, 1) == 1) return;
+
+        OnGracePeriodExpired = null;
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;

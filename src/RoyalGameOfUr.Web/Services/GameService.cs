@@ -29,12 +29,9 @@ public sealed class GameService : IGameObserver
     public bool DiceRolled { get; private set; }
     public int[]? IndividualDice { get; private set; }
 
-    // Events for UI notification
-    public event Func<Task>? OnStateChanged;
-    public event Func<Task>? OnDiceRolledEvent;
-    public event Func<Task>? OnMoveRequested;
-    public event Func<Task>? OnSkipRequested;
-    public event Func<Task>? OnGameOverEvent;
+    // UI notification callbacks (single subscriber per page lifecycle)
+    public Func<Task>? OnChange { get; set; }
+    public Func<Task>? OnDiceRolled { get; set; }
 
     private BlazorPlayer? ActiveHumanPlayer
     {
@@ -76,8 +73,8 @@ public sealed class GameService : IGameObserver
         if (p1Type == PlayerType.Human)
         {
             _blazorPlayer1 = new BlazorPlayer(p1Name);
-            _blazorPlayer1.OnMoveRequested += HandleMoveRequested;
-            _blazorPlayer1.OnSkipRequested += HandleSkipRequested;
+            _blazorPlayer1.OnMoveRequested = HandleMoveRequested;
+            _blazorPlayer1.OnSkipRequested = HandleSkipRequested;
             player1 = _blazorPlayer1;
         }
         else
@@ -89,8 +86,8 @@ public sealed class GameService : IGameObserver
         if (p2Type == PlayerType.Human)
         {
             _blazorPlayer2 = new BlazorPlayer(p2Name);
-            _blazorPlayer2.OnMoveRequested += HandleMoveRequested;
-            _blazorPlayer2.OnSkipRequested += HandleSkipRequested;
+            _blazorPlayer2.OnMoveRequested = HandleMoveRequested;
+            _blazorPlayer2.OnSkipRequested = HandleSkipRequested;
             player2 = _blazorPlayer2;
         }
         else
@@ -103,8 +100,8 @@ public sealed class GameService : IGameObserver
         IsRunning = true;
 
         // Fire initial state
-        if (OnStateChanged is not null)
-            await OnStateChanged.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
 
         // Run game loop on background thread
         _ = Task.Run(async () =>
@@ -120,8 +117,8 @@ public sealed class GameService : IGameObserver
             catch (Exception ex)
             {
                 StatusMessage = $"Error: {ex.Message}";
-                if (OnStateChanged is not null)
-                    await OnStateChanged.Invoke();
+                if (OnChange is not null)
+                    await OnChange.Invoke();
             }
             finally
             {
@@ -172,8 +169,8 @@ public sealed class GameService : IGameObserver
     async Task IGameObserver.OnStateChangedAsync(GameState state)
     {
         State = state;
-        if (OnStateChanged is not null)
-            await OnStateChanged.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
     }
 
     async Task IGameObserver.OnDiceRolledAsync(Player player, int roll)
@@ -186,8 +183,8 @@ public sealed class GameService : IGameObserver
         StatusMessage = EffectiveRollDisplay != roll
             ? $"{playerName} rolled {roll} (effective: {EffectiveRollDisplay})"
             : $"{playerName} rolled {roll}";
-        if (OnDiceRolledEvent is not null)
-            await OnDiceRolledEvent.Invoke();
+        if (OnDiceRolled is not null)
+            await OnDiceRolled.Invoke();
     }
 
     Task IGameObserver.OnMoveMadeAsync(Move move, MoveOutcome outcome)
@@ -217,8 +214,8 @@ public sealed class GameService : IGameObserver
         StatusMessage = $"{playerName} has no valid moves - turn forfeited";
         DiceRolled = false;
         ValidMoves = [];
-        if (OnStateChanged is not null)
-            await OnStateChanged.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
     }
 
     async Task IGameObserver.OnGameOverAsync(Player winner)
@@ -226,8 +223,8 @@ public sealed class GameService : IGameObserver
         Winner = winner;
         var playerName = winner == Player.One ? Player1Name : Player2Name;
         StatusMessage = $"{playerName} wins the game!";
-        if (OnGameOverEvent is not null)
-            await OnGameOverEvent.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
     }
 
     private async Task HandleMoveRequested()
@@ -237,13 +234,13 @@ public sealed class GameService : IGameObserver
         {
             ValidMoves = player.PendingMoves;
         }
-        if (OnMoveRequested is not null)
-            await OnMoveRequested.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
     }
 
     private async Task HandleSkipRequested()
     {
-        if (OnSkipRequested is not null)
-            await OnSkipRequested.Invoke();
+        if (OnChange is not null)
+            await OnChange.Invoke();
     }
 }

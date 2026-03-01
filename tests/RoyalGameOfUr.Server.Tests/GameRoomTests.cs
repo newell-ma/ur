@@ -272,6 +272,7 @@ public class GameRoomTests
         {
             firedCode = code;
             firedConnId = connId;
+            return Task.CompletedTask;
         };
 
         room.StartGracePeriod("conn1");
@@ -288,7 +289,7 @@ public class GameRoomTests
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1", fakeTime);
 
         bool fired = false;
-        room.OnGracePeriodExpired = (_, _) => fired = true;
+        room.OnGracePeriodExpired = (_, _) => { fired = true; return Task.CompletedTask; };
 
         room.StartGracePeriod("conn1");
         var cancelled = room.CancelGracePeriod("conn1");

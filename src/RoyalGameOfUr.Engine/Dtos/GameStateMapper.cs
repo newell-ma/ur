@@ -31,10 +31,10 @@ public static class GameStateMapper
         var builder = new GameStateBuilder(rules);
 
         foreach (var piece in dto.Player1Pieces)
-            builder.WithPiece(Player.One, piece.Position);
+            builder.WithPiece(Player.One, piece.Id, piece.Position);
 
         foreach (var piece in dto.Player2Pieces)
-            builder.WithPiece(Player.Two, piece.Position);
+            builder.WithPiece(Player.Two, piece.Id, piece.Position);
 
         builder.WithCurrentPlayer(dto.CurrentPlayer);
 

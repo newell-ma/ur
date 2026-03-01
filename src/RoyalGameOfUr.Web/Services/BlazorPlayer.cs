@@ -8,8 +8,8 @@ public sealed class BlazorPlayer : ISkipCapablePlayer
     private TaskCompletionSource<bool>? _skipTcs;
 
     public string Name { get; }
-    public event Func<Task>? OnMoveRequested;
-    public event Func<Task>? OnSkipRequested;
+    public Func<Task>? OnMoveRequested { get; set; }
+    public Func<Task>? OnSkipRequested { get; set; }
 
     public IReadOnlyList<Move> PendingMoves { get; private set; } = [];
     public int PendingRoll { get; private set; }

@@ -195,8 +195,8 @@
 
     protected override async Task OnInitializedAsync()
     {
-        Online.OnRoomUpdated += HandleRoomUpdated;
-        Online.OnGameStarting += HandleGameStarting;
+        Online.OnChange = HandleRoomUpdated;
+        Online.OnGameStarting = HandleGameStarting;
         Online.Reset();
         await Online.ClearStoredTokenAsync();
         await Online.ConnectAsync();
@@ -247,8 +247,8 @@
 
     public async ValueTask DisposeAsync()
     {
-        Online.OnRoomUpdated -= HandleRoomUpdated;
-        Online.OnGameStarting -= HandleGameStarting;
+        Online.OnChange = null;
+        Online.OnGameStarting = null;
 
         if (_inRoom && !Online.IsRunning)
         {

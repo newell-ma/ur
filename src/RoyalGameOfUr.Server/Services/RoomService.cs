@@ -124,15 +124,7 @@ public sealed class RoomService : IRoomService
         // If game hasn't started (lobby phase), do immediate teardown
         if (!room.IsStarted)
         {
-            room.Stop();
-            var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
-            if (opponentConnectionId is not null)
-            {
-                await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
-                _connectionToRoom.TryRemove(opponentConnectionId, out _);
-            }
-            CleanupTokens(room);
-            _roomManager.RemoveRoom(roomCode);
+            await TeardownRoom(room, roomCode, connectionId);
             return;
         }
 
@@ -143,6 +135,17 @@ public sealed class RoomService : IRoomService
 
         room.OnGracePeriodExpired = OnGracePeriodExpired;
         room.StartGracePeriod(connectionId);
+    }
+
+    public async Task HandleLeave(string connectionId)
+    {
+        if (!_connectionToRoom.TryRemove(connectionId, out var roomCode))
+            return;
+
+        var room = _roomManager.GetRoom(roomCode);
+        if (room is null) return;
+
+        await TeardownRoom(room, roomCode, connectionId);
     }
 
     public async Task<RejoinResult> HandleRejoin(string sessionToken, string newConnectionId)
@@ -163,6 +166,7 @@ public sealed class RoomService : IRoomService
 
         // Swap the connection ID
         player.ConnectionId = newConnectionId;
+        _connectionToRoom.TryRemove(oldConnectionId, out _);
         _connectionToRoom[newConnectionId] = roomCode;
 
         // Cancel grace period
@@ -195,7 +199,7 @@ public sealed class RoomService : IRoomService
         return new RejoinResult(true, "", roomCode, room.RulesName, p1Name, p2Name, sideStr);
     }
 
-    private async void OnGracePeriodExpired(string roomCode, string connectionId)
+    private async Task OnGracePeriodExpired(string roomCode, string connectionId)
     {
         try
         {
@@ -240,6 +244,19 @@ public sealed class RoomService : IRoomService
             _tokenToRoom.TryRemove(room.Player1Token, out _);
         if (room.Player2Token is not null)
             _tokenToRoom.TryRemove(room.Player2Token, out _);
+    }
+
+    private async Task TeardownRoom(GameRoom room, string roomCode, string connectionId)
+    {
+        room.Stop();
+        var opponentConnectionId = GetOpponentConnectionId(room, connectionId);
+        if (opponentConnectionId is not null)
+        {
+            await _broadcaster.SendToPlayer(opponentConnectionId, "ReceiveOpponentDisconnected");
+            _connectionToRoom.TryRemove(opponentConnectionId, out _);
+        }
+        CleanupTokens(room);
+        _roomManager.RemoveRoom(roomCode);
     }
 
     private static string? GetOpponentConnectionId(GameRoom room, string disconnectedConnectionId)

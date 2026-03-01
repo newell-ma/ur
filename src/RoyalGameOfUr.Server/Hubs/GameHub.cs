@@ -51,7 +51,7 @@ public sealed class GameHub : Hub
 
     public async Task LeaveRoom()
     {
-        await _roomService.HandleDisconnect(Context.ConnectionId);
+        await _roomService.HandleLeave(Context.ConnectionId);
     }
 
     public async Task<RejoinResult> Rejoin(string sessionToken)

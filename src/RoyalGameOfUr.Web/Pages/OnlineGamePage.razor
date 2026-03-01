@@ -231,20 +231,14 @@
 
     private void SubscribeEvents()
     {
-        Online.OnStateChanged += HandleStateChanged;
-        Online.OnDiceRolledEvent += HandleDiceRolled;
-        Online.OnMoveRequested += HandleMoveRequested;
-        Online.OnSkipRequested += HandleSkipRequested;
-        Online.OnGameOverEvent += HandleGameOver;
+        Online.OnChange = HandleStateChanged;
+        Online.OnDiceRolled = HandleDiceRolled;
     }
 
     private void UnsubscribeEvents()
     {
-        Online.OnStateChanged -= HandleStateChanged;
-        Online.OnDiceRolledEvent -= HandleDiceRolled;
-        Online.OnMoveRequested -= HandleMoveRequested;
-        Online.OnSkipRequested -= HandleSkipRequested;
-        Online.OnGameOverEvent -= HandleGameOver;
+        Online.OnChange = null;
+        Online.OnDiceRolled = null;
     }
 
     private async Task HandleStateChanged()
@@ -261,22 +255,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task HandleMoveRequested()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleSkipRequested()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleGameOver()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async void HandleMoveSelected(Move move)
+    private async Task HandleMoveSelected(Move move)
     {
         await Online.SubmitMoveAsync(move);
     }

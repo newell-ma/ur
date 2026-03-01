@@ -10,7 +10,7 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     private ITimer? _timeoutTimer;
 
     public string Name { get; }
-    public string ConnectionId { get; set; }
+    public string ConnectionId { get; internal set; }
     public IReadOnlyList<Move> PendingMoves { get; private set; } = [];
     public TimeSpan MoveTimeout { get; set; } = TimeSpan.FromSeconds(60);
 

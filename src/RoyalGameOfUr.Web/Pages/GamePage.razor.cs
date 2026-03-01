@@ -20,20 +20,14 @@ public partial class GamePage : IDisposable
 
     private void SubscribeEvents()
     {
-        GameSvc.OnStateChanged += HandleStateChanged;
-        GameSvc.OnDiceRolledEvent += HandleDiceRolled;
-        GameSvc.OnMoveRequested += HandleMoveRequested;
-        GameSvc.OnSkipRequested += HandleSkipRequested;
-        GameSvc.OnGameOverEvent += HandleGameOver;
+        GameSvc.OnChange = HandleStateChanged;
+        GameSvc.OnDiceRolled = HandleDiceRolled;
     }
 
     private void UnsubscribeEvents()
     {
-        GameSvc.OnStateChanged -= HandleStateChanged;
-        GameSvc.OnDiceRolledEvent -= HandleDiceRolled;
-        GameSvc.OnMoveRequested -= HandleMoveRequested;
-        GameSvc.OnSkipRequested -= HandleSkipRequested;
-        GameSvc.OnGameOverEvent -= HandleGameOver;
+        GameSvc.OnChange = null;
+        GameSvc.OnDiceRolled = null;
     }
 
     private async Task StartNewGame()
@@ -72,21 +66,6 @@ public partial class GamePage : IDisposable
         // Let dice animation play
         await Task.Delay(900);
         _diceRolling = false;
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleMoveRequested()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleSkipRequested()
-    {
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private async Task HandleGameOver()
-    {
         await InvokeAsync(StateHasChanged);
     }
 

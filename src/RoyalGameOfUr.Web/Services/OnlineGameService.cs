@@ -51,14 +51,10 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     public bool OpponentReconnecting { get; internal set; }
     public string? SessionToken { get; internal set; }
 
-    // Events for UI notification
-    public event Func<Task>? OnStateChanged;
-    public event Func<Task>? OnDiceRolledEvent;
-    public event Func<Task>? OnMoveRequested;
-    public event Func<Task>? OnSkipRequested;
-    public event Func<Task>? OnGameOverEvent;
-    public event Func<Task>? OnRoomUpdated;
-    public event Func<Task>? OnGameStarting;
+    // UI notification callbacks (single subscriber per page lifecycle)
+    public Func<Task>? OnChange { get; set; }
+    public Func<Task>? OnDiceRolled { get; set; }
+    public Func<Task>? OnGameStarting { get; set; }
 
     public OnlineGameService(NavigationManager nav, IJSRuntime js)
     {
@@ -100,7 +96,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             State = GameStateMapper.FromDto(dto);
             LastRollDisplay = dto.LastRoll;
             EffectiveRollDisplay = dto.EffectiveRoll;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<Player, int>("ReceiveDiceRolled", async (player, roll) =>
@@ -113,7 +109,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             StatusMessage = EffectiveRollDisplay != roll
                 ? $"{playerName} rolled {roll} (effective: {EffectiveRollDisplay})"
                 : $"{playerName} rolled {roll}";
-            if (OnDiceRolledEvent is not null) await OnDiceRolledEvent.Invoke();
+            if (OnDiceRolled is not null) await OnDiceRolled.Invoke();
         });
 
         _hub.On<Move, MoveOutcome>("ReceiveMoveMade", async (move, outcome) =>
@@ -135,7 +131,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
                 _ => $"{playerName} moved"
             };
             DiceRolled = false;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<Player>("ReceiveTurnForfeited", async (player) =>
@@ -146,7 +142,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             ValidMoves = [];
             IsAwaitingMove = false;
             IsAwaitingSkip = false;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<Player>("ReceiveGameOver", async (winner) =>
@@ -159,7 +155,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             var playerName = winner == Player.One ? Player1Name : Player2Name;
             StatusMessage = $"{playerName} wins the game!";
             await ClearTokenAsync();
-            if (OnGameOverEvent is not null) await OnGameOverEvent.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<Move[], int>("ReceiveMoveRequired", async (validMoves, roll) =>
@@ -167,7 +163,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             ValidMoves = validMoves;
             IsAwaitingMove = true;
             IsAwaitingSkip = false;
-            if (OnMoveRequested is not null) await OnMoveRequested.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<Move[], int>("ReceiveSkipRequired", async (validMoves, roll) =>
@@ -175,26 +171,26 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             ValidMoves = validMoves;
             IsAwaitingSkip = true;
             IsAwaitingMove = false;
-            if (OnSkipRequested is not null) await OnSkipRequested.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<string>("ReceiveOpponentJoined", async (name) =>
         {
             OpponentJoined = true;
             OpponentName = name;
-            if (OnRoomUpdated is not null) await OnRoomUpdated.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<string>("ReceiveError", async (message) =>
         {
             ErrorMessage = message;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On<string>("ReceiveOpponentSlow", async (_) =>
         {
             OpponentSlow = true;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On("ReceiveOpponentDisconnected", async () =>
@@ -207,20 +203,20 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             ValidMoves = [];
             StatusMessage = "Opponent disconnected";
             await ClearTokenAsync();
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On("ReceiveOpponentReconnecting", async () =>
         {
             OpponentReconnecting = true;
             OpponentSlow = false;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.On("ReceiveOpponentReconnected", async () =>
         {
             OpponentReconnecting = false;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         });
 
         _hub.Reconnected += OnReconnected;
@@ -233,7 +229,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         if (!result.Success)
         {
             ErrorMessage = result.Error;
-            if (OnStateChanged is not null) await OnStateChanged.Invoke();
+            if (OnChange is not null) await OnChange.Invoke();
         }
     }
 
@@ -366,6 +362,8 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         if (_hub is not null)
         {
             _hub.Reconnected -= OnReconnected;
+            try { await _hub.SendAsync("LeaveRoom"); }
+            catch (InvalidOperationException) { /* connection already closed */ }
             await _hub.StopAsync();
             await _hub.DisposeAsync();
             _hub = null;
