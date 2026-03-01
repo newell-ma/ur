@@ -351,11 +351,4 @@ public class GameRoomTests
             .Do(_ => tcs.TrySetResult());
         return tcs.Task;
     }
-
-    private static async Task WaitUntilAsync(Func<bool> condition)
-    {
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        while (!condition())
-            await Task.Delay(10, cts.Token);
-    }
 }
