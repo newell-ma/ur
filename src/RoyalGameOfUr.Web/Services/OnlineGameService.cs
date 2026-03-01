@@ -282,45 +282,59 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
     {
         if (_hub is null) return (false, "Not connected");
 
-        LocalPlayerName = playerName;
-        IsHost = true;
-        LocalPlayer = Player.One;
+        try
+        {
+            LocalPlayerName = playerName;
+            IsHost = true;
+            LocalPlayer = Player.One;
 
-        var result = await _hub.InvokeAsync<CreateRoomResult>("CreateRoom", rulesName, playerName);
-        if (!result.Success)
-            return (false, result.Error);
+            var result = await _hub.InvokeAsync<CreateRoomResult>("CreateRoom", rulesName, playerName);
+            if (!result.Success)
+                return (false, result.Error);
 
-        RoomCode = result.Code;
-        RulesName = result.RulesName;
-        Rules = GameStateMapper.ResolveRules(result.RulesName);
-        Player1Name = playerName;
-        SessionToken = result.SessionToken;
-        await SaveTokenAsync();
-        return (true, null);
+            RoomCode = result.Code;
+            RulesName = result.RulesName;
+            Rules = GameStateMapper.ResolveRules(result.RulesName);
+            Player1Name = playerName;
+            SessionToken = result.SessionToken;
+            await SaveTokenAsync();
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
     }
 
     public async Task<(bool Success, string? Error)> JoinRoomAsync(string code, string playerName)
     {
         if (_hub is null) return (false, "Not connected");
 
-        LocalPlayerName = playerName;
-        IsHost = false;
-        LocalPlayer = Player.Two;
+        try
+        {
+            LocalPlayerName = playerName;
+            IsHost = false;
+            LocalPlayer = Player.Two;
 
-        var result = await _hub.InvokeAsync<JoinRoomResult>("JoinRoom", code, playerName);
-        if (!result.Success)
-            return (false, result.Error);
+            var result = await _hub.InvokeAsync<JoinRoomResult>("JoinRoom", code, playerName);
+            if (!result.Success)
+                return (false, result.Error);
 
-        RoomCode = result.Code;
-        RulesName = result.RulesName;
-        Rules = GameStateMapper.ResolveRules(result.RulesName);
-        Player1Name = result.HostName;
-        Player2Name = playerName;
-        OpponentName = result.HostName;
-        OpponentJoined = true;
-        SessionToken = result.SessionToken;
-        await SaveTokenAsync();
-        return (true, null);
+            RoomCode = result.Code;
+            RulesName = result.RulesName;
+            Rules = GameStateMapper.ResolveRules(result.RulesName);
+            Player1Name = result.HostName;
+            Player2Name = playerName;
+            OpponentName = result.HostName;
+            OpponentJoined = true;
+            SessionToken = result.SessionToken;
+            await SaveTokenAsync();
+            return (true, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
     }
 
     public async Task StartGameAsync()
