@@ -1,7 +1,7 @@
 @page "/online"
 @inject OnlineGameService Online
 @inject NavigationManager Nav
-@implements IDisposable
+@implements IAsyncDisposable
 
 <h1>The Royal Game of Ur</h1>
 <h2>Online Multiplayer</h2>
@@ -244,9 +244,14 @@
         await InvokeAsync(() => Nav.NavigateTo("/online/play"));
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Online.OnRoomUpdated -= HandleRoomUpdated;
         Online.OnGameStarting -= HandleGameStarting;
+
+        if (_inRoom && !Online.IsRunning)
+        {
+            await Online.LeaveRoomAsync();
+        }
     }
 }
