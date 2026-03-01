@@ -260,6 +260,17 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
         await _hub.SendAsync("SubmitSkipDecision", RoomCode, skip);
     }
 
+    public async Task LeaveGameAsync()
+    {
+        if (_hub is not null)
+        {
+            await _hub.StopAsync();
+            await _hub.DisposeAsync();
+            _hub = null;
+        }
+        Reset();
+    }
+
     public void Reset()
     {
         RoomCode = null;

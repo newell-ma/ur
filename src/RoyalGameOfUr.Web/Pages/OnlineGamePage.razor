@@ -237,13 +237,15 @@
         await Online.SubmitSkipDecisionAsync(skip);
     }
 
-    private void LeaveGame()
+    private async Task LeaveGame()
     {
+        await Online.LeaveGameAsync();
         Nav.NavigateTo("/online");
     }
 
-    private void BackToLobby()
+    private async Task BackToLobby()
     {
+        await Online.LeaveGameAsync();
         Nav.NavigateTo("/online");
     }
 
