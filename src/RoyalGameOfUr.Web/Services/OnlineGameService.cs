@@ -113,7 +113,7 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
             if (OnDiceRolled is not null) await OnDiceRolled.Invoke();
         });
 
-        _hub.On<Move, MoveOutcome>("ReceiveMoveMade", async (move, outcome) =>
+        _hub.On<Move, MoveOutcome>("ReceiveMoveMade", (move, outcome) =>
         {
             LastMove = move;
             LastOutcome = outcome;
@@ -132,7 +132,9 @@ public sealed class OnlineGameService : IAsyncDisposable, IDisposable
                 _ => $"{playerName} moved"
             };
             DiceRolled = false;
-            if (OnChange is not null) await OnChange.Invoke();
+            // Don't call OnChange here — ReceiveStateChanged always follows immediately
+            // and will trigger a single consolidated re-render with both LastMove and State set.
+            // This matches local GameService behavior where OnMoveMadeAsync doesn't re-render.
         });
 
         _hub.On<Player>("ReceiveTurnForfeited", async (player) =>

@@ -1092,4 +1092,150 @@ public class GameTests
     }
 
     #endregion
+
+    #region Block Jumping Tests
+
+    [Test]
+    public async Task BlockJumping_CantJumpOwnPieceOnBoard()
+    {
+        // Piece at 3 blocks the piece at 1 from moving to 5 (roll 4)
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 1)
+            .WithPiece(Player.One, 3)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(4), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var blocked = moves.Any(m => m.From == 1 && m.To == 5);
+        await Assert.That(blocked).IsFalse();
+    }
+
+    [Test]
+    public async Task BlockJumping_CantEnterBoardOverOwnPiece()
+    {
+        // Piece at 0 blocks entry with roll 2 (path crosses position 0)
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 0)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var enterMove = moves.Any(m => m.From == -1 && m.To == 1);
+        await Assert.That(enterMove).IsFalse();
+    }
+
+    [Test]
+    public async Task BlockJumping_CanEnterBoardWhenPathClear()
+    {
+        // No pieces blocking positions 0-2, entry with roll 3 is valid
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 5)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(3), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var enterMove = moves.Any(m => m.From == -1 && m.To == 2);
+        await Assert.That(enterMove).IsTrue();
+    }
+
+    [Test]
+    public async Task BlockJumping_AdjacentMoveNotBlocked()
+    {
+        // Moving one step (roll 1) has no intermediate positions to check
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 5)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(1), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var move = moves.Any(m => m.From == 5 && m.To == 6);
+        await Assert.That(move).IsTrue();
+    }
+
+    [Test]
+    public async Task BlockJumping_OpponentDoesNotBlock()
+    {
+        // Opponent piece in shared lane does not block movement
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 5)
+            .WithPiece(Player.Two, 6) // opponent in the way
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var move = moves.Any(m => m.From == 5 && m.To == 7);
+        await Assert.That(move).IsTrue();
+    }
+
+    [Test]
+    public async Task BlockJumping_BackwardMoveBlocked()
+    {
+        // Tournament backward move blocked by own piece in between
+        var state = new GameStateBuilder(GameRules.Tournament)
+            .WithPiece(Player.One, 8)
+            .WithPiece(Player.One, 6) // blocks backward from 8 to 5
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(3), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var blocked = moves.Any(m => m.From == 8 && m.To == 5);
+        await Assert.That(blocked).IsFalse();
+    }
+
+    [Test]
+    public async Task BlockJumping_DisabledAllowsJumping()
+    {
+        // Custom rules with BlockJumping=false allows jumping over own pieces
+        var rules = new GameRules(
+            rosettePositions: new HashSet<int> { 4, 8, 14 },
+            piecesPerPlayer: 7,
+            pathLength: 15,
+            sharedLaneStart: 5,
+            sharedLaneEnd: 12,
+            blockJumping: false);
+
+        var state = new GameStateBuilder(rules)
+            .WithPiece(Player.One, 1)
+            .WithPiece(Player.One, 3) // would block with BlockJumping=true
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(4), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var jumpMove = moves.Any(m => m.From == 1 && m.To == 5);
+        await Assert.That(jumpMove).IsTrue();
+    }
+
+    [Test]
+    public async Task BlockJumping_BearOffBlockedByPieceOnPath()
+    {
+        // Piece at 13, own piece at 14, roll 2 → bear off at 15
+        // Position 14 is an intermediate position and has own piece → blocked
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 13)
+            .WithPiece(Player.One, 14)
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+        var bearOff = moves.Any(m => m.From == 13 && m.To == 15);
+        await Assert.That(bearOff).IsFalse();
+    }
+
+    #endregion
 }

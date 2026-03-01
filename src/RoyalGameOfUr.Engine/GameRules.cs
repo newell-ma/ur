@@ -17,6 +17,7 @@ public sealed class GameRules
     public bool AllowStacking { get; }
     public bool AllowBackwardMoves { get; }
     public bool AllowVoluntarySkip { get; }
+    public bool BlockJumping { get; }
 
     public GameRules(
         IReadOnlySet<int> rosettePositions,
@@ -33,7 +34,8 @@ public sealed class GameRules
         int? zeroRollValue = null,
         bool allowStacking = false,
         bool allowBackwardMoves = false,
-        bool allowVoluntarySkip = false)
+        bool allowVoluntarySkip = false,
+        bool blockJumping = false)
     {
         Name = name ?? "Custom";
         RosettePositions = rosettePositions;
@@ -50,6 +52,7 @@ public sealed class GameRules
         AllowStacking = allowStacking;
         AllowBackwardMoves = allowBackwardMoves;
         AllowVoluntarySkip = allowVoluntarySkip;
+        BlockJumping = blockJumping;
     }
 
     public bool IsRosette(int position) => RosettePositions.Contains(position);
@@ -86,7 +89,8 @@ public sealed class GameRules
         pathLength: 15,
         sharedLaneStart: 5,
         sharedLaneEnd: 12,
-        name: "Finkel");
+        name: "Finkel",
+        blockJumping: true);
 
     public static GameRules Simple => new(
         rosettePositions: new HashSet<int> { 4, 8 },
@@ -94,7 +98,8 @@ public sealed class GameRules
         pathLength: 15,
         sharedLaneStart: 5,
         sharedLaneEnd: 12,
-        name: "Simple");
+        name: "Simple",
+        blockJumping: true);
 
     public static GameRules Masters => new(
         rosettePositions: new HashSet<int> { 3, 7, 11, 15 },
@@ -106,7 +111,8 @@ public sealed class GameRules
         name: "Masters",
         captureMap: BuildMastersCaptureMap(),
         safeRosettes: false,
-        zeroRollValue: 4);
+        zeroRollValue: 4,
+        blockJumping: true);
 
     public static GameRules Blitz => new(
         rosettePositions: new HashSet<int> { 3, 7, 11, 15 },
@@ -117,7 +123,8 @@ public sealed class GameRules
         name: "Blitz",
         captureMap: BuildMastersCaptureMap(),
         safeRosettes: false,
-        captureExtraRoll: true);
+        captureExtraRoll: true,
+        blockJumping: true);
 
     public static GameRules Tournament => new(
         rosettePositions: new HashSet<int> { 3, 7, 11, 15 },
@@ -130,5 +137,6 @@ public sealed class GameRules
         rosetteExtraRoll: false,
         allowStacking: true,
         allowBackwardMoves: true,
-        allowVoluntarySkip: true);
+        allowVoluntarySkip: true,
+        blockJumping: true);
 }

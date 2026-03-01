@@ -60,7 +60,9 @@ public sealed class Game
 
             // Forward move
             int forwardTo = from + roll;
-            if (forwardTo <= rules.PathLength && IsValidDestination(player, forwardTo, rules))
+            if (forwardTo <= rules.PathLength
+                && IsValidDestination(player, forwardTo, rules)
+                && IsPathClear(player, from, forwardTo))
             {
                 if (seen.Add((from, forwardTo)))
                     moves.Add(new Move(player, idx, from, forwardTo));
@@ -70,7 +72,9 @@ public sealed class Game
             if (rules.AllowBackwardMoves && from > 0)
             {
                 int backwardTo = from - roll;
-                if (backwardTo >= 0 && IsValidDestination(player, backwardTo, rules))
+                if (backwardTo >= 0
+                    && IsValidDestination(player, backwardTo, rules)
+                    && IsPathClear(player, from, backwardTo))
                 {
                     if (seen.Add((from, backwardTo)))
                         moves.Add(new Move(player, idx, from, backwardTo));
@@ -79,6 +83,26 @@ public sealed class Game
         }
 
         return moves;
+    }
+
+    private bool IsPathClear(Player player, int from, int to)
+    {
+        if (!State.Rules.BlockJumping)
+            return true;
+
+        // Check intermediate positions (exclusive of endpoints) for own pieces.
+        // For board entry (from=-1), start checking from position 0.
+        int step = to > from ? 1 : -1;
+        int first = from + step;
+        if (first < 0) first = 0;
+
+        for (int pos = first; pos != to; pos += step)
+        {
+            if (State.IsOccupiedBy(player, pos))
+                return false;
+        }
+
+        return true;
     }
 
     private bool IsValidDestination(Player player, int to, GameRules rules)
