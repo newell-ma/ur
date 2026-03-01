@@ -2,19 +2,26 @@ namespace RoyalGameOfUr.Engine;
 
 public sealed class GreedyAiPlayer : ISkipCapablePlayer
 {
+    private readonly TimeProvider _timeProvider;
+
     public string Name { get; }
     public TimeSpan ThinkingDelay { get; }
 
-    public GreedyAiPlayer(string name, TimeSpan? thinkingDelay = null)
+    public GreedyAiPlayer(string name, TimeSpan? thinkingDelay = null, TimeProvider? timeProvider = null)
     {
         Name = name;
         ThinkingDelay = thinkingDelay ?? TimeSpan.FromMilliseconds(500);
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<Move> ChooseMoveAsync(GameState state, IReadOnlyList<Move> validMoves, int roll)
     {
         if (ThinkingDelay > TimeSpan.Zero)
-            await Task.Delay(ThinkingDelay);
+        {
+            var tcs = new TaskCompletionSource();
+            using var timer = _timeProvider.CreateTimer(_ => tcs.TrySetResult(), null, ThinkingDelay, Timeout.InfiniteTimeSpan);
+            await tcs.Task;
+        }
 
         var best = validMoves[0];
         int bestScore = ScoreMove(best, state);

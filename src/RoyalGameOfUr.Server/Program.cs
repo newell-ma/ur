@@ -5,6 +5,7 @@ using RoyalGameOfUr.Server.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSignalR();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<RoomManager>();
 builder.Services.AddSingleton<IGameBroadcaster, SignalRGameBroadcaster>();
 builder.Services.AddSingleton<IRoomService, RoomService>();

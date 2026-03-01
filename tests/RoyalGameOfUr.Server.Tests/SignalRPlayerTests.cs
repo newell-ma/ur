@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Server.Rooms;
 
@@ -121,13 +122,14 @@ public class SignalRPlayerTests
     public async Task ChooseMoveAsync_TimesOut_FiresCallback()
     {
         var timedOut = false;
-        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromMilliseconds(50) };
+        var fakeTime = new FakeTimeProvider();
+        var player = new SignalRPlayer("Alice", "conn1", fakeTime);
         player.OnMoveTimedOut = () => timedOut = true;
         var state = CreateDummyState();
         var moves = new[] { new Move(Player.One, 0, -1, 2) };
 
         var task = player.ChooseMoveAsync(state, moves, 2);
-        await Task.Delay(200);
+        fakeTime.Advance(TimeSpan.FromSeconds(60));
 
         await Assert.That(timedOut).IsTrue();
         // Game still awaits — player can still submit
@@ -141,13 +143,14 @@ public class SignalRPlayerTests
     public async Task ShouldSkipAsync_TimesOut_FiresCallback()
     {
         var timedOut = false;
-        var player = new SignalRPlayer("Alice", "conn1") { MoveTimeout = TimeSpan.FromMilliseconds(50) };
+        var fakeTime = new FakeTimeProvider();
+        var player = new SignalRPlayer("Alice", "conn1", fakeTime);
         player.OnMoveTimedOut = () => timedOut = true;
         var state = CreateDummyState();
         var moves = new[] { new Move(Player.One, 0, -1, 2) };
 
         var task = player.ShouldSkipAsync(state, moves, 2);
-        await Task.Delay(200);
+        fakeTime.Advance(TimeSpan.FromSeconds(60));
 
         await Assert.That(timedOut).IsTrue();
         await Assert.That(player.IsAwaitingSkip).IsTrue();

@@ -5,7 +5,13 @@ namespace RoyalGameOfUr.Server.Rooms;
 public sealed class RoomManager
 {
     private readonly ConcurrentDictionary<string, GameRoom> _rooms = new();
+    private readonly TimeProvider _timeProvider;
     private static readonly Random _rng = new();
+
+    public RoomManager(TimeProvider? timeProvider = null)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public GameRoom CreateRoom(string rulesName, string hostName, string hostConnectionId)
     {
@@ -14,7 +20,7 @@ public sealed class RoomManager
         do
         {
             code = GenerateCode();
-            room = new GameRoom(code, rulesName, hostName, hostConnectionId);
+            room = new GameRoom(code, rulesName, hostName, hostConnectionId, _timeProvider);
         } while (!_rooms.TryAdd(code, room));
 
         return room;

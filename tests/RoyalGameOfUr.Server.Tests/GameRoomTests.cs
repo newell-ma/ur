@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using RoyalGameOfUr.Engine;
 using RoyalGameOfUr.Engine.Dtos;
@@ -77,13 +78,12 @@ public class GameRoomTests
     public async Task Start_BroadcastsStateChanged()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
 
         room.Start(broadcaster);
-
-        // Wait for the game loop to fire the initial state event
-        await Task.Delay(200);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         await broadcaster.Received().BroadcastStateChanged(
             room.GroupName,
@@ -96,11 +96,12 @@ public class GameRoomTests
     public async Task OnDiceRolled_BroadcastsThroughBroadcaster()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
         room.Start(broadcaster);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await Task.Delay(100);
         broadcaster.ClearReceivedCalls();
 
         var observer = (IGameObserver)room;
@@ -115,11 +116,12 @@ public class GameRoomTests
     public async Task OnMoveMade_BroadcastsThroughBroadcaster()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
         room.Start(broadcaster);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await Task.Delay(100);
         broadcaster.ClearReceivedCalls();
 
         var move = new Move(Player.One, 0, -1, 2);
@@ -136,11 +138,12 @@ public class GameRoomTests
     public async Task OnGameOver_SetsFinished_And_Broadcasts()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
         room.Start(broadcaster);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
-        await Task.Delay(100);
         broadcaster.ClearReceivedCalls();
 
         var observer = (IGameObserver)room;
@@ -156,18 +159,19 @@ public class GameRoomTests
     public async Task OnGameCompleted_FiredAfterStop()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
 
         string? completedCode = null;
-        room.OnGameCompleted = code => completedCode = code;
+        var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        room.OnGameCompleted = code => { completedCode = code; completed.TrySetResult(); };
 
         room.Start(broadcaster);
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         room.Stop();
-        // Wait for Task.Run finally block to execute
-        await Task.Delay(200);
+        await completed.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         await Assert.That(completedCode).IsEqualTo("TEST");
     }
@@ -175,18 +179,17 @@ public class GameRoomTests
     [Test]
     public async Task Start_Timeout_NotifiesOpponent()
     {
+        var fakeTime = new FakeTimeProvider();
         var broadcaster = Substitute.For<IGameBroadcaster>();
-        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
+        var moveRequested = WhenMoveRequested(broadcaster);
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1", fakeTime);
         room.TryJoin("Bob", "conn2");
 
-        // Set very short timeout so the notification fires quickly
-        room.Player1!.MoveTimeout = TimeSpan.FromMilliseconds(50);
-        room.Player2!.MoveTimeout = TimeSpan.FromMilliseconds(50);
-
         room.Start(broadcaster);
+        await moveRequested.WaitAsync(TimeSpan.FromSeconds(5));
 
-        // Wait for the timeout notification to fire
-        await Task.Delay(500);
+        // Advance past the 60s move timeout
+        fakeTime.Advance(TimeSpan.FromSeconds(60));
 
         // One of the players timed out — opponent should be notified
         await broadcaster.Received().SendToPlayer(
@@ -201,14 +204,15 @@ public class GameRoomTests
     public async Task Start_DeliberateStop_NoBroadcastError()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
 
         room.Start(broadcaster);
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         room.Stop();
-        await Task.Delay(200);
+        await WaitUntilAsync(() => room.IsFinished);
 
         await broadcaster.DidNotReceive().BroadcastError(Arg.Any<string>(), Arg.Any<string>());
     }
@@ -259,8 +263,8 @@ public class GameRoomTests
     [Test]
     public async Task StartGracePeriod_ExpiresAfterTimeout_FiresCallback()
     {
-        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
-        room.GracePeriod = TimeSpan.FromMilliseconds(100);
+        var fakeTime = new FakeTimeProvider();
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1", fakeTime);
 
         string? firedCode = null;
         string? firedConnId = null;
@@ -271,8 +275,7 @@ public class GameRoomTests
         };
 
         room.StartGracePeriod("conn1");
-
-        await Task.Delay(300);
+        fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         await Assert.That(firedCode).IsEqualTo("TEST");
         await Assert.That(firedConnId).IsEqualTo("conn1");
@@ -281,8 +284,8 @@ public class GameRoomTests
     [Test]
     public async Task CancelGracePeriod_BeforeExpiry_PreventsCallback()
     {
-        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
-        room.GracePeriod = TimeSpan.FromMilliseconds(200);
+        var fakeTime = new FakeTimeProvider();
+        var room = new GameRoom("TEST", "Finkel", "Alice", "conn1", fakeTime);
 
         bool fired = false;
         room.OnGracePeriodExpired = (_, _) => fired = true;
@@ -290,7 +293,7 @@ public class GameRoomTests
         room.StartGracePeriod("conn1");
         var cancelled = room.CancelGracePeriod("conn1");
 
-        await Task.Delay(400);
+        fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         await Assert.That(cancelled).IsTrue();
         await Assert.That(fired).IsFalse();
@@ -316,15 +319,39 @@ public class GameRoomTests
     public async Task LastStateDto_CachedOnStateChanged()
     {
         var broadcaster = Substitute.For<IGameBroadcaster>();
+        var gameLoopReady = WhenGameLoopReady(broadcaster);
         var room = new GameRoom("TEST", "Finkel", "Alice", "conn1");
         room.TryJoin("Bob", "conn2");
         room.Start(broadcaster);
-
-        // Wait for initial state to be broadcast
-        await Task.Delay(200);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         await Assert.That(room.LastStateDto).IsNotNull();
 
         room.Stop();
+    }
+
+    // --- Helpers ---
+
+    private static Task WhenGameLoopReady(IGameBroadcaster broadcaster)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        broadcaster.When(b => b.BroadcastStateChanged(Arg.Any<string>(), Arg.Any<GameStateDto>()))
+            .Do(_ => tcs.TrySetResult());
+        return tcs.Task;
+    }
+
+    private static Task WhenMoveRequested(IGameBroadcaster broadcaster)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        broadcaster.When(b => b.SendToPlayer(Arg.Any<string>(), "ReceiveMoveRequired", Arg.Any<object?[]>()))
+            .Do(_ => tcs.TrySetResult());
+        return tcs.Task;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+            await Task.Delay(1, cts.Token);
     }
 }

@@ -6,9 +6,10 @@ namespace RoyalGameOfUr.Server.Rooms;
 public sealed class GameRoom : IGameObserver
 {
     private readonly object _joinLock = new();
+    private readonly TimeProvider _timeProvider;
     private CancellationTokenSource? _cts;
     private IGameBroadcaster? _broadcaster;
-    private CancellationTokenSource? _graceCts;
+    private ITimer? _graceTimer;
     private string? _disconnectedConnectionId;
 
     public string Code { get; }
@@ -25,11 +26,12 @@ public sealed class GameRoom : IGameObserver
     public TimeSpan GracePeriod { get; set; } = TimeSpan.FromSeconds(30);
     public Action<string, string>? OnGracePeriodExpired { get; set; }
 
-    public GameRoom(string code, string rulesName, string hostName, string hostConnectionId)
+    public GameRoom(string code, string rulesName, string hostName, string hostConnectionId, TimeProvider? timeProvider = null)
     {
         Code = code;
         RulesName = rulesName;
-        Player1 = new SignalRPlayer(hostName, hostConnectionId);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        Player1 = new SignalRPlayer(hostName, hostConnectionId, _timeProvider);
         Player1Token = Guid.NewGuid().ToString("N");
     }
 
@@ -40,7 +42,7 @@ public sealed class GameRoom : IGameObserver
         lock (_joinLock)
         {
             if (Player2 is not null || IsStarted) return false;
-            Player2 = new SignalRPlayer(guestName, connectionId);
+            Player2 = new SignalRPlayer(guestName, connectionId, _timeProvider);
             Player2Token = Guid.NewGuid().ToString("N");
             return true;
         }
@@ -68,27 +70,23 @@ public sealed class GameRoom : IGameObserver
     public void StartGracePeriod(string connectionId)
     {
         _disconnectedConnectionId = connectionId;
-        _graceCts?.Dispose();
-        _graceCts = new CancellationTokenSource();
-        var cts = _graceCts;
+        _graceTimer?.Dispose();
         var roomCode = Code;
         var connId = connectionId;
 
-        Task.Delay(GracePeriod, cts.Token).ContinueWith(t =>
+        _graceTimer = _timeProvider.CreateTimer(_ =>
         {
-            if (!t.IsCanceled)
-                OnGracePeriodExpired?.Invoke(roomCode, connId);
-        }, TaskScheduler.Default);
+            OnGracePeriodExpired?.Invoke(roomCode, connId);
+        }, null, GracePeriod, Timeout.InfiniteTimeSpan);
     }
 
     public bool CancelGracePeriod(string connectionId)
     {
-        if (_graceCts is null || _disconnectedConnectionId != connectionId)
+        if (_graceTimer is null || _disconnectedConnectionId != connectionId)
             return false;
 
-        _graceCts.Cancel();
-        _graceCts.Dispose();
-        _graceCts = null;
+        _graceTimer.Dispose();
+        _graceTimer = null;
         _disconnectedConnectionId = null;
         return true;
     }
@@ -152,9 +150,8 @@ public sealed class GameRoom : IGameObserver
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
-        _graceCts?.Cancel();
-        _graceCts?.Dispose();
-        _graceCts = null;
+        _graceTimer?.Dispose();
+        _graceTimer = null;
         Player1?.Cancel();
         Player2?.Cancel();
     }

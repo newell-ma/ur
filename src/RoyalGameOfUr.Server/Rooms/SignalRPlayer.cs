@@ -4,9 +4,10 @@ namespace RoyalGameOfUr.Server.Rooms;
 
 public sealed class SignalRPlayer : ISkipCapablePlayer
 {
+    private readonly TimeProvider _timeProvider;
     private TaskCompletionSource<Move>? _moveTcs;
     private TaskCompletionSource<bool>? _skipTcs;
-    private CancellationTokenSource? _timeoutCts;
+    private ITimer? _timeoutTimer;
 
     public string Name { get; }
     public string ConnectionId { get; set; }
@@ -28,18 +29,18 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     /// </summary>
     public Action? OnMoveTimedOut { get; set; }
 
-    public SignalRPlayer(string name, string connectionId)
+    public SignalRPlayer(string name, string connectionId, TimeProvider? timeProvider = null)
     {
         Name = name;
         ConnectionId = connectionId;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<Move> ChooseMoveAsync(GameState state, IReadOnlyList<Move> validMoves, int roll)
     {
         PendingMoves = validMoves;
         _moveTcs = new TaskCompletionSource<Move>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _timeoutCts = new CancellationTokenSource(MoveTimeout);
-        _timeoutCts.Token.Register(() => OnMoveTimedOut?.Invoke());
+        _timeoutTimer = _timeProvider.CreateTimer(_ => OnMoveTimedOut?.Invoke(), null, MoveTimeout, Timeout.InfiniteTimeSpan);
 
         if (OnMoveRequired is not null)
             await OnMoveRequired(validMoves, roll);
@@ -50,8 +51,8 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
         }
         finally
         {
-            _timeoutCts.Dispose();
-            _timeoutCts = null;
+            _timeoutTimer.Dispose();
+            _timeoutTimer = null;
             _moveTcs = null;
             PendingMoves = [];
         }
@@ -61,8 +62,7 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
     {
         PendingMoves = validMoves;
         _skipTcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _timeoutCts = new CancellationTokenSource(MoveTimeout);
-        _timeoutCts.Token.Register(() => OnMoveTimedOut?.Invoke());
+        _timeoutTimer = _timeProvider.CreateTimer(_ => OnMoveTimedOut?.Invoke(), null, MoveTimeout, Timeout.InfiniteTimeSpan);
 
         if (OnSkipRequired is not null)
             await OnSkipRequired(validMoves, roll);
@@ -73,8 +73,8 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
         }
         finally
         {
-            _timeoutCts.Dispose();
-            _timeoutCts = null;
+            _timeoutTimer.Dispose();
+            _timeoutTimer = null;
             _skipTcs = null;
             PendingMoves = [];
         }
@@ -97,7 +97,7 @@ public sealed class SignalRPlayer : ISkipCapablePlayer
 
     public void Cancel()
     {
-        _timeoutCts?.Cancel();
+        _timeoutTimer?.Dispose();
         _moveTcs?.TrySetCanceled();
         _skipTcs?.TrySetCanceled();
     }

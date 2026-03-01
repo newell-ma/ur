@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Time.Testing;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 using RoyalGameOfUr.Engine;
+using RoyalGameOfUr.Engine.Dtos;
 using RoyalGameOfUr.Server.Rooms;
 using RoyalGameOfUr.Server.Services;
 
@@ -9,13 +11,15 @@ namespace RoyalGameOfUr.Server.Tests;
 
 public class RoomServiceTests
 {
-    private readonly RoomManager _roomManager = new();
+    private readonly FakeTimeProvider _fakeTime = new();
+    private readonly RoomManager _roomManager;
     private readonly IGameBroadcaster _broadcaster = Substitute.For<IGameBroadcaster>();
     private readonly ILogger<RoomService> _logger = Substitute.For<ILogger<RoomService>>();
     private readonly RoomService _service;
 
     public RoomServiceTests()
     {
+        _roomManager = new RoomManager(_fakeTime);
         _service = new RoomService(_roomManager, _broadcaster, _logger);
     }
 
@@ -174,34 +178,18 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+
+        var moveRequested = WhenMoveRequested(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
+        await moveRequested.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
-
-        // Wait for the game loop to request a move from one of the players
-        await Task.Delay(300);
-
         var player1 = room.GetSignalRPlayer(Player.One)!;
         var player2 = room.GetSignalRPlayer(Player.Two)!;
 
-        string activeConnectionId;
-        Move validMove;
-        if (player1.IsAwaitingMove && player1.PendingMoves.Count > 0)
-        {
-            activeConnectionId = player1.ConnectionId;
-            validMove = player1.PendingMoves[0];
-        }
-        else if (player2.IsAwaitingMove && player2.PendingMoves.Count > 0)
-        {
-            activeConnectionId = player2.ConnectionId;
-            validMove = player2.PendingMoves[0];
-        }
-        else
-        {
-            // Turn was forfeited (rolled 0) — still valid, we tested the lookup path
-            room.Stop();
-            return;
-        }
+        var (activeConnectionId, validMove) = player1.IsAwaitingMove
+            ? (player1.ConnectionId, player1.PendingMoves[0])
+            : (player2.ConnectionId, player2.PendingMoves[0]);
 
         await Assert.That(_service.TrySubmitMove(createResult.Code, activeConnectionId, validMove)).IsTrue();
 
@@ -222,8 +210,9 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         await _service.HandleDisconnect("conn1");
 
@@ -265,16 +254,14 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-
-        var room = _roomManager.GetRoom(createResult.Code)!;
-        room.GracePeriod = TimeSpan.FromMilliseconds(100);
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         await _service.HandleDisconnect("conn1");
 
-        // Wait for grace period to expire
-        await Task.Delay(300);
+        // Advance past the 30s grace period
+        _fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
     }
@@ -284,17 +271,15 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-
-        var room = _roomManager.GetRoom(createResult.Code)!;
-        room.GracePeriod = TimeSpan.FromMilliseconds(100);
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
         _broadcaster.ClearReceivedCalls();
 
         await _service.HandleDisconnect("conn1");
 
-        // Wait for grace period to expire
-        await Task.Delay(300);
+        // Advance past the 30s grace period
+        _fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         await _broadcaster.Received().SendToPlayer(
             "conn2",
@@ -309,11 +294,11 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
-        room.GracePeriod = TimeSpan.FromSeconds(30);
 
         await _service.HandleDisconnect("conn1");
 
@@ -330,19 +315,19 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
-        room.GracePeriod = TimeSpan.FromMilliseconds(200);
 
         await _service.HandleDisconnect("conn1");
 
         // Rejoin before grace expires
         await _service.HandleRejoin(createResult.SessionToken, "conn1-new");
 
-        // Wait past original grace period — room should still exist
-        await Task.Delay(400);
+        // Advance past grace period — room should still exist because grace was cancelled
+        _fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNotNull();
 
@@ -363,8 +348,9 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
         await _service.HandleDisconnect("conn1");
@@ -385,14 +371,15 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
-        await Task.Delay(100);
 
-        // Stop triggers cancellation → OnGameCompleted fires from finally block
+        // Stop triggers cancellation -> OnGameCompleted fires from finally block
         room.Stop();
-        await Task.Delay(200);
+        await WaitUntilAsync(() => _roomManager.GetRoom(createResult.Code) is null);
 
         await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
     }
@@ -402,13 +389,14 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         var room = _roomManager.GetRoom(createResult.Code)!;
-        await Task.Delay(100);
 
         room.Stop();
-        await Task.Delay(200);
+        await WaitUntilAsync(() => _roomManager.GetRoom(createResult.Code) is null);
 
         // After game completion, disconnect should be a no-op (mapping already removed)
         _broadcaster.ClearReceivedCalls();
@@ -427,11 +415,9 @@ public class RoomServiceTests
     {
         var createResult = _service.CreateRoom("Finkel", "Alice", "conn1");
         await _service.JoinRoom(createResult.Code, "Bob", "conn2");
+        var gameLoopReady = WhenGameLoopReady(_broadcaster);
         await _service.TryStartGame(createResult.Code, "conn1");
-
-        var room = _roomManager.GetRoom(createResult.Code)!;
-        room.GracePeriod = TimeSpan.FromMilliseconds(100);
-        await Task.Delay(100);
+        await gameLoopReady.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Disconnect first (sends ReceiveOpponentReconnecting successfully)
         await _service.HandleDisconnect("conn1");
@@ -441,10 +427,35 @@ public class RoomServiceTests
         _broadcaster.SendToPlayer(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<object?[]>())
             .ThrowsAsync(new InvalidOperationException("Connection is dead"));
 
-        // Wait for grace period to expire
-        await Task.Delay(300);
+        // Advance past the 30s grace period
+        _fakeTime.Advance(TimeSpan.FromSeconds(30));
 
         // Room should still be cleaned up despite the send failure
         await Assert.That(_roomManager.GetRoom(createResult.Code)).IsNull();
+    }
+
+    // --- Helpers ---
+
+    private static Task WhenGameLoopReady(IGameBroadcaster broadcaster)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        broadcaster.When(b => b.BroadcastStateChanged(Arg.Any<string>(), Arg.Any<GameStateDto>()))
+            .Do(_ => tcs.TrySetResult());
+        return tcs.Task;
+    }
+
+    private static Task WhenMoveRequested(IGameBroadcaster broadcaster)
+    {
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        broadcaster.When(b => b.SendToPlayer(Arg.Any<string>(), "ReceiveMoveRequired", Arg.Any<object?[]>()))
+            .Do(_ => tcs.TrySetResult());
+        return tcs.Task;
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        while (!condition())
+            await Task.Delay(1, cts.Token);
     }
 }
