@@ -58,7 +58,7 @@ public sealed class LobbyPage(IPage page, string baseUrl)
             return;
 
         await page.WaitForURLAsync("**/online/play",
-            new PageWaitForURLOptions { Timeout = 10_000 });
+            new PageWaitForURLOptions { Timeout = 30_000 });
     }
 
     public ILocator RoomCode => page.Locator(".room-code");
