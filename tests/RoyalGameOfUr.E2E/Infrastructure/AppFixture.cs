@@ -17,9 +17,10 @@ public sealed class AppFixture : IAsyncInitializer, IAsyncDisposable
     public async Task InitializeAsync()
     {
         _playwright = await Playwright.CreateAsync();
+        var channel = Environment.GetEnvironmentVariable("PLAYWRIGHT_BROWSER_CHANNEL") ?? "msedge";
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
         {
-            Channel = "msedge",
+            Channel = channel == "" ? null : channel,
             Headless = true
         });
 
