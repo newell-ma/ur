@@ -21,6 +21,15 @@ public sealed class TwoPlayerSession : IAsyncDisposable
         session._hostContext = await fixture.NewContextAsync();
         session._guestContext = await fixture.NewContextAsync();
 
+        await session._hostContext.Tracing.StartAsync(new TracingStartOptions
+        {
+            Screenshots = true, Snapshots = true, Sources = false
+        });
+        await session._guestContext.Tracing.StartAsync(new TracingStartOptions
+        {
+            Screenshots = true, Snapshots = true, Sources = false
+        });
+
         var hostPage = await session._hostContext.NewPageAsync();
         var guestPage = await session._guestContext.NewPageAsync();
 
@@ -30,6 +39,42 @@ public sealed class TwoPlayerSession : IAsyncDisposable
         session.GuestGame = new GamePage(guestPage);
 
         return session;
+    }
+
+    public async Task SaveArtifactsAsync(string testName)
+    {
+        var dir = Path.Combine(AppContext.BaseDirectory, "playwright-artifacts");
+        Directory.CreateDirectory(dir);
+
+        try
+        {
+            await HostLobby.Page.ScreenshotAsync(new PageScreenshotOptions
+            {
+                Path = Path.Combine(dir, $"{testName}-host.png")
+            });
+        }
+        catch { /* page may be closed */ }
+
+        try
+        {
+            await GuestLobby.Page.ScreenshotAsync(new PageScreenshotOptions
+            {
+                Path = Path.Combine(dir, $"{testName}-guest.png")
+            });
+        }
+        catch { /* page may be closed */ }
+
+        if (_hostContext is not null)
+            await _hostContext.Tracing.StopAsync(new TracingStopOptions
+            {
+                Path = Path.Combine(dir, $"{testName}-host.zip")
+            });
+
+        if (_guestContext is not null)
+            await _guestContext.Tracing.StopAsync(new TracingStopOptions
+            {
+                Path = Path.Combine(dir, $"{testName}-guest.zip")
+            });
     }
 
     public async Task SetupAndStartGameAsync(

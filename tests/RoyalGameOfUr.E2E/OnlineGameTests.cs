@@ -154,15 +154,23 @@ public class OnlineGameTests(AppFixture fixture)
     public async Task Disconnect_ShowsBanner()
     {
         await using var session = await TwoPlayerSession.CreateAsync(fixture, fixture.DefaultServer.BaseUrl);
-        await session.SetupAndStartGameAsync();
+        try
+        {
+            await session.SetupAndStartGameAsync();
 
-        // Close the guest's page to simulate disconnect
-        await session.GuestGame.Page.CloseAsync();
+            // Close the guest's page to simulate disconnect
+            await session.GuestGame.Page.CloseAsync();
 
-        // Host should see the disconnect banner (after grace period or immediate notification)
-        // The server may show reconnecting first, then disconnected
-        var hostDisconnect = session.HostGame.DisconnectBanner;
-        await hostDisconnect.WaitForAsync(new() { Timeout = 40_000 });
-        await Assert.That(await hostDisconnect.IsVisibleAsync()).IsTrue();
+            // Host should see the disconnect banner (after grace period or immediate notification)
+            // The server may show reconnecting first, then disconnected
+            var hostDisconnect = session.HostGame.DisconnectBanner;
+            await hostDisconnect.WaitForAsync(new() { Timeout = 40_000 });
+            await Assert.That(await hostDisconnect.IsVisibleAsync()).IsTrue();
+        }
+        catch
+        {
+            await session.SaveArtifactsAsync(nameof(Disconnect_ShowsBanner));
+            throw;
+        }
     }
 }

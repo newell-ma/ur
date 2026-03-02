@@ -30,6 +30,14 @@ jobs:
         env:
           PLAYWRIGHT_BROWSER_CHANNEL: ""
 
+      # Upload Playwright artifacts on failure
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-artifacts
+          path: tests/RoyalGameOfUr.E2E/bin/Debug/net10.0/playwright-artifacts/
+          retention-days: 7
+
   publish:
     runs-on: ubuntu-latest
     needs: build-and-test
