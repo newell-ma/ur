@@ -6,10 +6,10 @@ namespace RoyalGameOfUr.Web.Tests.Services;
 public class BoardCoordinateMapperTests
 {
     [Test]
-    public async Task BellPath_Has9Columns()
+    public async Task BellPath_Has8Columns()
     {
         var mapper = new BoardCoordinateMapper(GameRules.Finkel);
-        await Assert.That(mapper.Columns).IsEqualTo(9);
+        await Assert.That(mapper.Columns).IsEqualTo(8);
     }
 
     [Test]
@@ -23,7 +23,7 @@ public class BoardCoordinateMapperTests
     public async Task BellPath_CellCount()
     {
         var mapper = new BoardCoordinateMapper(GameRules.Finkel);
-        await Assert.That(mapper.Cells.Count).IsEqualTo(21);
+        await Assert.That(mapper.Cells.Count).IsEqualTo(20);
     }
 
     [Test]

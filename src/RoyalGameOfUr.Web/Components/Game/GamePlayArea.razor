@@ -1,0 +1,68 @@
+@* Shared game play area: info panel, dice, skip prompt, board, game-over overlay *@
+
+<GameInfoPanel State="State"
+               Player1Name="@Player1Name"
+               Player2Name="@Player2Name"
+               Player1Type="Player1Type"
+               Player2Type="Player2Type"
+               StatusMessage="@StatusMessage" />
+
+<DiceView IndividualDice="IndividualDice"
+          Total="LastRollDisplay"
+          EffectiveTotal="EffectiveRollDisplay"
+          IsRolling="IsDiceRolling" />
+
+@if (IsAwaitingSkip)
+{
+    <div class="skip-prompt">
+        <span>Only backward moves available. Skip turn?</span>
+        <button class="btn" @onclick="() => OnSkipDecision.InvokeAsync(true)">Skip</button>
+        <button class="btn" @onclick="() => OnSkipDecision.InvokeAsync(false)">Move Backward</button>
+    </div>
+}
+
+@if (Mapper is not null)
+{
+    <BoardView State="State"
+               Rules="Rules"
+               Mapper="Mapper"
+               ValidMoves="ValidMoves"
+               LastMove="LastMove"
+               LastOutcome="LastOutcome"
+               OnMoveSelected="OnMoveSelected" />
+}
+
+@if (Winner is not null)
+{
+    <GameOverOverlay Winner="Winner.Value"
+                     WinnerName="@WinnerName"
+                     OnPlayAgain="OnPlayAgain" />
+}
+
+@code {
+    [Parameter] public GameState? State { get; set; }
+    [Parameter] public GameRules Rules { get; set; } = GameRules.Finkel;
+    [Parameter] public BoardCoordinateMapper? Mapper { get; set; }
+    [Parameter] public IReadOnlyList<Move> ValidMoves { get; set; } = [];
+    [Parameter] public Move? LastMove { get; set; }
+    [Parameter] public MoveOutcome? LastOutcome { get; set; }
+
+    [Parameter] public string Player1Name { get; set; } = "Player 1";
+    [Parameter] public string Player2Name { get; set; } = "Player 2";
+    [Parameter] public PlayerType Player1Type { get; set; }
+    [Parameter] public PlayerType Player2Type { get; set; }
+    [Parameter] public string? StatusMessage { get; set; }
+
+    [Parameter] public int LastRollDisplay { get; set; }
+    [Parameter] public int EffectiveRollDisplay { get; set; }
+    [Parameter] public int[]? IndividualDice { get; set; }
+    [Parameter] public bool IsDiceRolling { get; set; }
+
+    [Parameter] public bool IsAwaitingSkip { get; set; }
+    [Parameter] public Player? Winner { get; set; }
+    [Parameter] public string WinnerName { get; set; } = "";
+
+    [Parameter] public EventCallback<Move> OnMoveSelected { get; set; }
+    [Parameter] public EventCallback<bool> OnSkipDecision { get; set; }
+    [Parameter] public EventCallback OnPlayAgain { get; set; }
+}

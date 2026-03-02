@@ -22,7 +22,7 @@ public sealed class BoardCoordinateMapper
     public BoardCoordinateMapper(GameRules rules)
     {
         _rules = rules;
-        if (rules.PathLength == 15)
+        if (rules.PathLength == 14)
             BuildBellPath(rules);
         else
             BuildMastersPath(rules);
@@ -61,13 +61,13 @@ public sealed class BoardCoordinateMapper
 
     private void BuildBellPath(GameRules rules)
     {
-        Columns = 9;
+        Columns = 8;
 
         // Bell path layout:
-        // Col:   0    1    2    3    4    5    6    7    8
-        // Row 0: [3]  [2]  [1]  [0]  ---  ---  ---  [14] [13]   P1 private + exit
-        // Row 1: [4]  [5]  [6]  [7]  [8]  [9]  [10] [11] [12]   Shared
-        // Row 2: [3]  [2]  [1]  [0]  ---  ---  ---  [14] [13]   P2 private + exit
+        // Col:   0    1    2    3    4    5    6    7
+        // Row 0: [3]  [2]  [1]  [0]  ---  ---  [13] [12]   P1 private + exit
+        // Row 1: [4]  [5]  [6]  [7]  [8]  [9]  [10] [11]   Shared
+        // Row 2: [3]  [2]  [1]  [0]  ---  ---  [13] [12]   P2 private + exit
 
         // P1 private lane (row 0, cols 0-3) — positions 3,2,1,0
         for (int col = 0; col < 4; col++)
@@ -84,10 +84,10 @@ public sealed class BoardCoordinateMapper
             RegisterPosition(Player.One, pos, col, 0);
         }
 
-        // P1 exit (row 0, cols 7-8) — positions 14,13
-        for (int col = 7; col <= 8; col++)
+        // P1 exit (row 0, cols 6-7) — positions 13,12
+        for (int col = 6; col <= 7; col++)
         {
-            int pos = 7 + 14 - col; // col 7 -> 14, col 8 -> 13
+            int pos = 6 + 13 - col; // col 6 -> 13, col 7 -> 12
             var cell = new BoardCell
             {
                 Col = col, Row = 0,
@@ -99,8 +99,8 @@ public sealed class BoardCoordinateMapper
             RegisterPosition(Player.One, pos, col, 0);
         }
 
-        // Shared lane (row 1, cols 0-8) — positions 4-12
-        for (int col = 0; col < 9; col++)
+        // Shared lane (row 1, cols 0-7) — positions 4-11
+        for (int col = 0; col < 8; col++)
         {
             int pos = col + 4;
             var cell = new BoardCell
@@ -130,10 +130,10 @@ public sealed class BoardCoordinateMapper
             RegisterPosition(Player.Two, pos, col, 2);
         }
 
-        // P2 exit (row 2, cols 7-8) — positions 14,13
-        for (int col = 7; col <= 8; col++)
+        // P2 exit (row 2, cols 6-7) — positions 13,12
+        for (int col = 6; col <= 7; col++)
         {
-            int pos = 7 + 14 - col;
+            int pos = 6 + 13 - col;
             var cell = new BoardCell
             {
                 Col = col, Row = 2,

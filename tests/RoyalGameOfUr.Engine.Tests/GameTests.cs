@@ -127,6 +127,24 @@ public class GameTests
     }
 
     [Test]
+    public async Task CantLandOnOwnPieceOnRosette()
+    {
+        // Rosette at position 4 already has own piece; piece at 2 rolls 2 → can't land there
+        var state = new GameStateBuilder(GameRules.Finkel)
+            .WithPiece(Player.One, 4) // own piece on rosette
+            .WithPiece(Player.One, 2) // piece that would land on it
+            .WithCurrentPlayer(Player.One)
+            .Build();
+        var game = new Game(new FixedDice(2), state);
+        game.Roll();
+
+        var moves = game.GetValidMoves();
+
+        var blocked = moves.Any(m => m.From == 2 && m.To == 4);
+        await Assert.That(blocked).IsFalse();
+    }
+
+    [Test]
     public async Task CanCaptureOnNonRosette()
     {
         // Position 5 is shared lane, not a rosette in Finkel
@@ -146,49 +164,49 @@ public class GameTests
     [Test]
     public async Task CantCaptureOnRosette()
     {
-        // Position 8 is rosette in Finkel and in shared lane
+        // Position 7 is rosette in Finkel and in shared lane
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 6)
-            .WithPiece(Player.Two, 8)
+            .WithPiece(Player.One, 5)
+            .WithPiece(Player.Two, 7)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        var captureMove = moves.FirstOrDefault(m => m.From == 6 && m.To == 8);
+        var captureMove = moves.FirstOrDefault(m => m.From == 5 && m.To == 7);
         await Assert.That(captureMove).IsEqualTo(default(Move));
     }
 
     [Test]
     public async Task ExactBearOffRequired()
     {
-        // PathLength=15, piece at 13, roll 3 = 16 > 15 -> invalid
+        // PathLength=14, piece at 12, roll 3 = 15 > 14 -> invalid
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 13)
+            .WithPiece(Player.One, 12)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(3), state);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        var overshoot = moves.Any(m => m.From == 13);
+        var overshoot = moves.Any(m => m.From == 12);
         await Assert.That(overshoot).IsFalse();
     }
 
     [Test]
     public async Task ExactBearOff_Allowed()
     {
-        // Piece at 13, roll 2 = 15 = PathLength -> valid bear off
+        // Piece at 12, roll 2 = 14 = PathLength -> valid bear off
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 13)
+            .WithPiece(Player.One, 12)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        var bearOff = moves.FirstOrDefault(m => m.From == 13 && m.To == 15);
+        var bearOff = moves.FirstOrDefault(m => m.From == 12 && m.To == 14);
         await Assert.That(bearOff).IsNotEqualTo(default(Move));
     }
 
@@ -207,7 +225,7 @@ public class GameTests
     [Test]
     public async Task CantCaptureOnPrivateLane()
     {
-        // Position 2 is NOT shared lane (shared is 5-12), so opponent can't be there
+        // Position 2 is NOT shared lane (shared is 4-11), so opponent can't be there
         // Actually the private lane means each player has their own positions 0-4 and 13-14.
         // But the way the game works, pieces on private lanes can't collide because
         // each player has their own path. The shared lane check handles this.
@@ -245,17 +263,15 @@ public class GameTests
     [Test]
     public async Task RosetteMove_GrantsExtraTurn()
     {
-        // Roll 4 lands on position 3 (-1+4=3)... that's not a rosette.
-        // Rosette at 4: need to land on 4. From -1, roll 5 = position 4. But max roll is 4.
-        // From 0, roll 4 = position 4. So enter first, then move to rosette.
+        // From 0, roll 3 = position 3 (rosette).
         var state = new GameStateBuilder(GameRules.Finkel)
             .WithPiece(Player.One, 0)
             .WithCurrentPlayer(Player.One)
             .Build();
-        var game = new Game(new FixedDice(4), state);
+        var game = new Game(new FixedDice(3), state);
         game.Roll();
         var moves = game.GetValidMoves();
-        var rosetteMove = moves.First(m => m.To == 4);
+        var rosetteMove = moves.First(m => m.To == 3);
 
         var outcome = game.ExecuteMove(rosetteMove);
 
@@ -267,20 +283,20 @@ public class GameTests
     public async Task Capture_SendsPieceToStart()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var move = game.GetValidMoves().First(m => m.From == 4 && m.To == 6);
         var outcome = game.ExecuteMove(move);
 
         await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
         await Assert.That(outcome.HasCapture).IsTrue();
         // P2's piece should be back at start
-        await Assert.That(game.State.IsOccupiedBy(Player.Two, 7)).IsFalse();
+        await Assert.That(game.State.IsOccupiedBy(Player.Two, 6)).IsFalse();
         await Assert.That(game.State.PiecesAtStart(Player.Two)).IsEqualTo(7); // all back including captured
     }
 
@@ -288,13 +304,13 @@ public class GameTests
     public async Task BearOff_Works()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 13)
+            .WithPiece(Player.One, 12)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        var move = game.GetValidMoves().First(m => m.From == 12 && m.To == 14);
         var outcome = game.ExecuteMove(move);
 
         await Assert.That(outcome.Result).IsEqualTo(MoveResult.BorneOff);
@@ -308,14 +324,14 @@ public class GameTests
         var builder = new GameStateBuilder(GameRules.Finkel)
             .WithCurrentPlayer(Player.One);
         for (int i = 0; i < 6; i++)
-            builder.WithPiece(Player.One, 15); // borne off
-        builder.WithPiece(Player.One, 13); // last piece near end
+            builder.WithPiece(Player.One, 14); // borne off
+        builder.WithPiece(Player.One, 12); // last piece near end
 
         var state = builder.Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        var move = game.GetValidMoves().First(m => m.From == 12 && m.To == 14);
         var outcome = game.ExecuteMove(move);
 
         await Assert.That(outcome.Result).IsEqualTo(MoveResult.Win);
@@ -329,13 +345,13 @@ public class GameTests
         var builder = new GameStateBuilder(GameRules.Finkel)
             .WithCurrentPlayer(Player.One);
         for (int i = 0; i < 6; i++)
-            builder.WithPiece(Player.One, 15);
-        builder.WithPiece(Player.One, 13);
+            builder.WithPiece(Player.One, 14);
+        builder.WithPiece(Player.One, 12);
 
         var state = builder.Build();
         var game = new Game(new FixedDice(2, 1), state);
         game.Roll();
-        var move = game.GetValidMoves().First(m => m.From == 13 && m.To == 15);
+        var move = game.GetValidMoves().First(m => m.From == 12 && m.To == 14);
         game.ExecuteMove(move);
 
         Assert.Throws<InvalidOperationException>(() => game.Roll());
@@ -377,18 +393,18 @@ public class GameTests
             .WithCurrentPlayer(Player.One)
             .Build();
 
-        // Roll 4: piece at 0 -> 4 (rosette, extra turn)
-        // Roll 4: piece at 4 -> 8 (rosette, extra turn)
-        var game = new Game(new FixedDice(4, 4), state);
+        // Roll 3: piece at 0 -> 3 (rosette, extra turn)
+        // Roll 4: piece at 3 -> 7 (rosette, extra turn)
+        var game = new Game(new FixedDice(3, 4), state);
 
         game.Roll();
-        var move1 = game.GetValidMoves().First(m => m.From == 0 && m.To == 4);
+        var move1 = game.GetValidMoves().First(m => m.From == 0 && m.To == 3);
         var outcome1 = game.ExecuteMove(move1);
         await Assert.That(outcome1.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
 
         game.Roll();
-        var move2 = game.GetValidMoves().First(m => m.From == 4 && m.To == 8);
+        var move2 = game.GetValidMoves().First(m => m.From == 3 && m.To == 7);
         var outcome2 = game.ExecuteMove(move2);
         await Assert.That(outcome2.Result).IsEqualTo(MoveResult.ExtraTurn);
         await Assert.That(game.State.CurrentPlayer).IsEqualTo(Player.One);
@@ -399,15 +415,15 @@ public class GameTests
     {
         // P1 captures P2, P2 must re-enter
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2, 1), state);
 
-        // P1 captures P2 at position 7
+        // P1 captures P2 at position 6
         game.Roll();
-        var captureMove = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var captureMove = game.GetValidMoves().First(m => m.From == 4 && m.To == 6);
         game.ExecuteMove(captureMove);
 
         // P2's turn, piece is back at -1, roll 1 -> enter at 0
@@ -470,9 +486,9 @@ public class GameTests
     }
 
     [Test]
-    [Arguments(4)]
-    [Arguments(8)]
-    [Arguments(14)]
+    [Arguments(3)]
+    [Arguments(7)]
+    [Arguments(13)]
     public async Task LandingOnRosette_GrantsExtraTurn(int rosettePos)
     {
         var state = new GameStateBuilder(GameRules.Finkel)
@@ -676,17 +692,17 @@ public class GameTests
     [Test]
     public async Task Finkel_CantCaptureOnRosette_Confirmed()
     {
-        // Position 8 is rosette in Finkel, SafeRosettes=true
+        // Position 7 is rosette in Finkel, SafeRosettes=true
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 6)
-            .WithPiece(Player.Two, 8)
+            .WithPiece(Player.One, 5)
+            .WithPiece(Player.Two, 7)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        var captureMove = moves.FirstOrDefault(m => m.From == 6 && m.To == 8);
+        var captureMove = moves.FirstOrDefault(m => m.From == 5 && m.To == 7);
         await Assert.That(captureMove).IsEqualTo(default(Move));
     }
 
@@ -717,14 +733,14 @@ public class GameTests
     public async Task Finkel_CaptureDoesNotGrantExtraTurn()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var move = game.GetValidMoves().First(m => m.From == 4 && m.To == 6);
         var outcome = game.ExecuteMove(move);
 
         await Assert.That(outcome.Result).IsEqualTo(MoveResult.Captured);
@@ -1064,14 +1080,14 @@ public class GameTests
     public async Task MoveOutcome_TracksCapture()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
-        var move = game.GetValidMoves().First(m => m.From == 5 && m.To == 7);
+        var move = game.GetValidMoves().First(m => m.From == 4 && m.To == 6);
         var outcome = game.ExecuteMove(move);
 
         await Assert.That(outcome.HasCapture).IsTrue();
@@ -1099,7 +1115,12 @@ public class GameTests
     public async Task BlockJumping_CantJumpOwnPieceOnBoard()
     {
         // Piece at 3 blocks the piece at 1 from moving to 5 (roll 4)
-        var state = new GameStateBuilder(GameRules.Finkel)
+        var rules = new GameRules(
+            rosettePositions: new HashSet<int> { 3, 7, 13 },
+            piecesPerPlayer: 7, pathLength: 14,
+            sharedLaneStart: 4, sharedLaneEnd: 11,
+            blockJumping: true);
+        var state = new GameStateBuilder(rules)
             .WithPiece(Player.One, 1)
             .WithPiece(Player.One, 3)
             .WithCurrentPlayer(Player.One)
@@ -1116,7 +1137,12 @@ public class GameTests
     public async Task BlockJumping_CantEnterBoardOverOwnPiece()
     {
         // Piece at 0 blocks entry with roll 2 (path crosses position 0)
-        var state = new GameStateBuilder(GameRules.Finkel)
+        var rules = new GameRules(
+            rosettePositions: new HashSet<int> { 3, 7, 13 },
+            piecesPerPlayer: 7, pathLength: 14,
+            sharedLaneStart: 4, sharedLaneEnd: 11,
+            blockJumping: true);
+        var state = new GameStateBuilder(rules)
             .WithPiece(Player.One, 0)
             .WithCurrentPlayer(Player.One)
             .Build();
@@ -1199,11 +1225,11 @@ public class GameTests
     {
         // Custom rules with BlockJumping=false allows jumping over own pieces
         var rules = new GameRules(
-            rosettePositions: new HashSet<int> { 4, 8, 14 },
+            rosettePositions: new HashSet<int> { 3, 7, 13 },
             piecesPerPlayer: 7,
-            pathLength: 15,
-            sharedLaneStart: 5,
-            sharedLaneEnd: 12,
+            pathLength: 14,
+            sharedLaneStart: 4,
+            sharedLaneEnd: 11,
             blockJumping: false);
 
         var state = new GameStateBuilder(rules)
@@ -1222,18 +1248,23 @@ public class GameTests
     [Test]
     public async Task BlockJumping_BearOffBlockedByPieceOnPath()
     {
-        // Piece at 13, own piece at 14, roll 2 → bear off at 15
-        // Position 14 is an intermediate position and has own piece → blocked
-        var state = new GameStateBuilder(GameRules.Finkel)
+        // Piece at 12, own piece at 13, roll 2 → bear off at 14
+        // Position 13 is an intermediate position and has own piece → blocked
+        var rules = new GameRules(
+            rosettePositions: new HashSet<int> { 3, 7, 13 },
+            piecesPerPlayer: 7, pathLength: 14,
+            sharedLaneStart: 4, sharedLaneEnd: 11,
+            blockJumping: true);
+        var state = new GameStateBuilder(rules)
+            .WithPiece(Player.One, 12)
             .WithPiece(Player.One, 13)
-            .WithPiece(Player.One, 14)
             .WithCurrentPlayer(Player.One)
             .Build();
         var game = new Game(new FixedDice(2), state);
         game.Roll();
 
         var moves = game.GetValidMoves();
-        var bearOff = moves.Any(m => m.From == 13 && m.To == 15);
+        var bearOff = moves.Any(m => m.From == 12 && m.To == 14);
         await Assert.That(bearOff).IsFalse();
     }
 

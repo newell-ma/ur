@@ -116,3 +116,12 @@ select {
     font-family: var(--font-main);
     font-size: 0.9rem;
 }
+
+/* === Shared Game UI === */
+.skip-prompt {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin: 0.5rem 0;
+    color: var(--sand);
+}

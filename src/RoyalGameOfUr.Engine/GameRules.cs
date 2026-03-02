@@ -84,20 +84,19 @@ public sealed class GameRules
     }
 
     public static GameRules Finkel => new(
-        rosettePositions: new HashSet<int> { 4, 8, 14 },
+        rosettePositions: new HashSet<int> { 3, 7, 13 },
         piecesPerPlayer: 7,
-        pathLength: 15,
-        sharedLaneStart: 5,
-        sharedLaneEnd: 12,
-        name: "Finkel",
-        blockJumping: true);
+        pathLength: 14,
+        sharedLaneStart: 4,
+        sharedLaneEnd: 11,
+        name: "Finkel");
 
     public static GameRules Simple => new(
-        rosettePositions: new HashSet<int> { 4, 8 },
+        rosettePositions: new HashSet<int> { 3, 7 },
         piecesPerPlayer: 7,
-        pathLength: 15,
-        sharedLaneStart: 5,
-        sharedLaneEnd: 12,
+        pathLength: 14,
+        sharedLaneStart: 4,
+        sharedLaneEnd: 11,
         name: "Simple",
         blockJumping: true);
 

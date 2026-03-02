@@ -34,12 +34,12 @@ dotnet run --project src/RoyalGameOfUr.Console/RoyalGameOfUr.Console.csproj -- -
 
 ## How to Play
 
-Two players take turns rolling four binary dice (0–4 range) and moving pieces along a path of 15 squares. The goal is to bear off all 7 pieces before your opponent.
+Two players take turns rolling four binary dice (0–4 range) and moving pieces along a path of 14 squares. The goal is to bear off all 7 pieces before your opponent.
 
 ```
-  1: [.] [.] [.] [.] [*]      [*] [.]        * = Rosette (safe square, extra turn)
-                    [.] [.] [.] [*] [.] [.] [.] [.]    Middle row = shared lane
-  2: [.] [.] [.] [.] [*]      [*] [.]        1/2 = player pieces
+    [*] [.] [.] [.] :1      [*] [.]         * = Rosette (safe square, extra turn)
+    [.] [.] [.] [*] [.] [.] [.] [.]         Middle row = shared lane
+    [*] [.] [.] [.] :2      [*] [.]         1/2 = player pieces
 ```
 
 **Key rules:**
@@ -80,16 +80,16 @@ public class MyAiPlayer : IPlayer
 
 ```csharp
 // Use a preset
-var rules = GameRules.Finkel;   // Rosettes at 4, 8, 14 — 7 pieces
-var rules = GameRules.Simple;   // Rosettes at 4, 8 — 7 pieces
+var rules = GameRules.Finkel;   // Rosettes at 3, 7, 13 — 7 pieces
+var rules = GameRules.Simple;   // Rosettes at 3, 7 — 7 pieces
 
 // Or define custom rules
 var rules = new GameRules(
-    rosettePositions: new HashSet<int> { 4, 8, 14 },
+    rosettePositions: new HashSet<int> { 3, 7, 13 },
     piecesPerPlayer: 7,
-    pathLength: 15,
-    sharedLaneStart: 5,
-    sharedLaneEnd: 12);
+    pathLength: 14,
+    sharedLaneStart: 4,
+    sharedLaneEnd: 11);
 ```
 
 ## Tests

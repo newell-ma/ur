@@ -9,9 +9,9 @@ public class GameRulesTests
     {
         var rules = GameRules.Finkel;
 
-        await Assert.That(rules.RosettePositions).Contains(4);
-        await Assert.That(rules.RosettePositions).Contains(8);
-        await Assert.That(rules.RosettePositions).Contains(14);
+        await Assert.That(rules.RosettePositions).Contains(3);
+        await Assert.That(rules.RosettePositions).Contains(7);
+        await Assert.That(rules.RosettePositions).Contains(13);
         await Assert.That(rules.RosettePositions.Count).IsEqualTo(3);
     }
 
@@ -22,17 +22,17 @@ public class GameRulesTests
     }
 
     [Test]
-    public async Task Finkel_HasPathLength15()
+    public async Task Finkel_HasPathLength14()
     {
-        await Assert.That(GameRules.Finkel.PathLength).IsEqualTo(15);
+        await Assert.That(GameRules.Finkel.PathLength).IsEqualTo(14);
     }
 
     [Test]
-    public async Task Finkel_SharedLane5To12()
+    public async Task Finkel_SharedLane4To11()
     {
         var rules = GameRules.Finkel;
-        await Assert.That(rules.SharedLaneStart).IsEqualTo(5);
-        await Assert.That(rules.SharedLaneEnd).IsEqualTo(12);
+        await Assert.That(rules.SharedLaneStart).IsEqualTo(4);
+        await Assert.That(rules.SharedLaneEnd).IsEqualTo(11);
     }
 
     [Test]
@@ -40,29 +40,29 @@ public class GameRulesTests
     {
         var rules = GameRules.Simple;
 
-        await Assert.That(rules.RosettePositions).Contains(4);
-        await Assert.That(rules.RosettePositions).Contains(8);
+        await Assert.That(rules.RosettePositions).Contains(3);
+        await Assert.That(rules.RosettePositions).Contains(7);
         await Assert.That(rules.RosettePositions.Count).IsEqualTo(2);
     }
 
     [Test]
-    [Arguments(4, true)]
-    [Arguments(8, true)]
-    [Arguments(14, true)]
+    [Arguments(3, true)]
+    [Arguments(7, true)]
+    [Arguments(13, true)]
     [Arguments(1, false)]
-    [Arguments(5, false)]
-    [Arguments(12, false)]
+    [Arguments(4, false)]
+    [Arguments(11, false)]
     public async Task IsRosette_Finkel(int position, bool expected)
     {
         await Assert.That(GameRules.Finkel.IsRosette(position)).IsEqualTo(expected);
     }
 
     [Test]
-    [Arguments(4, false)]
-    [Arguments(5, true)]
-    [Arguments(8, true)]
-    [Arguments(12, true)]
-    [Arguments(13, false)]
+    [Arguments(3, false)]
+    [Arguments(4, true)]
+    [Arguments(7, true)]
+    [Arguments(11, true)]
+    [Arguments(12, false)]
     public async Task IsSharedLane_Finkel(int position, bool expected)
     {
         await Assert.That(GameRules.Finkel.IsSharedLane(position)).IsEqualTo(expected);
@@ -189,14 +189,14 @@ public class GameRulesTests
     {
         var rules = GameRules.Finkel;
 
-        for (int i = 5; i <= 12; i++)
+        for (int i = 4; i <= 11; i++)
         {
             await Assert.That(rules.IsSharedLane(i)).IsTrue();
             await Assert.That(rules.GetOpponentCapturePosition(i)).IsEqualTo(i);
         }
 
-        await Assert.That(rules.IsSharedLane(4)).IsFalse();
-        await Assert.That(rules.IsSharedLane(13)).IsFalse();
+        await Assert.That(rules.IsSharedLane(3)).IsFalse();
+        await Assert.That(rules.IsSharedLane(12)).IsFalse();
     }
 
     [Test]

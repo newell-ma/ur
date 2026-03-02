@@ -30,12 +30,12 @@ public sealed class AppFixture : IAsyncInitializer, IAsyncDisposable
         // Start fixed-dice server (for deterministic full-game tests)
         FixedDiceServer = new TestServerHost(services =>
         {
-            // Replace the RoomManager with one that uses a cycling [2,0] dice.
-            // P1 always rolls 2 (advance), P2 always rolls 0 (forfeit).
-            // With Finkel rules, roll=2 lands on odd positions (1,3,5,7,9,11,13,15)
-            // which never hit rosettes (4,8,14), so no extra-turn complications.
+            // Replace the RoomManager with one that uses a cycling [3,0] dice.
+            // P1 always rolls 3 (advance), P2 always rolls 0 (forfeit).
+            // With Finkel rules, roll=3 lands on positions (2,5,8,11,14=borne off)
+            // which never hit rosettes (3,7,13), so no extra-turn complications.
             services.AddSingleton(new RoomManager(
-                diceFactory: _ => new CyclingDice([2, 0])));
+                diceFactory: _ => new CyclingDice([3, 0])));
         });
         await FixedDiceServer.StartAsync();
 

@@ -11,21 +11,21 @@ public class GreedyAiPlayerTests
     [Test]
     public async Task PrefersBearOff_OverRosette()
     {
-        // Piece at 13 can bear off (to 15), piece at 12 can land on rosette 14
+        // Piece at 12 can bear off (to 14), piece at 11 can land on rosette 13
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 13)
             .WithPiece(Player.One, 12)
+            .WithPiece(Player.One, 11)
             .WithCurrentPlayer(Player.One)
             .Build();
 
         var moves = new List<Move>
         {
-            new(Player.One, 0, 13, 15), // bear off (piece index 0)
-            new(Player.One, 1, 12, 14), // rosette (piece index 1)
+            new(Player.One, 0, 12, 14), // bear off (piece index 0)
+            new(Player.One, 1, 11, 13), // rosette (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
-        await Assert.That(chosen.To).IsEqualTo(15);
+        await Assert.That(chosen.To).IsEqualTo(14);
     }
 
     #endregion
@@ -36,19 +36,19 @@ public class GreedyAiPlayerTests
     public async Task PrefersRosette_OverPlainMove()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 2)
-            .WithPiece(Player.One, 5)
+            .WithPiece(Player.One, 1)
+            .WithPiece(Player.One, 4)
             .WithCurrentPlayer(Player.One)
             .Build();
 
         var moves = new List<Move>
         {
-            new(Player.One, 0, 2, 4), // rosette at 4 (piece index 0)
-            new(Player.One, 1, 5, 7), // plain move (piece index 1)
+            new(Player.One, 0, 1, 3), // rosette at 3 (piece index 0)
+            new(Player.One, 1, 4, 6), // plain move (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
-        await Assert.That(chosen.To).IsEqualTo(4);
+        await Assert.That(chosen.To).IsEqualTo(3);
     }
 
     [Test]
@@ -56,20 +56,20 @@ public class GreedyAiPlayerTests
     {
         // Rosette is more valuable than capture
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 2)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 1)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
 
         var moves = new List<Move>
         {
-            new(Player.One, 0, 2, 4), // rosette (piece index 0)
-            new(Player.One, 1, 5, 7), // capture (piece index 1)
+            new(Player.One, 0, 1, 3), // rosette (piece index 0)
+            new(Player.One, 1, 4, 6), // capture (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
-        await Assert.That(chosen.To).IsEqualTo(4);
+        await Assert.That(chosen.To).IsEqualTo(3);
     }
 
     #endregion
@@ -80,20 +80,20 @@ public class GreedyAiPlayerTests
     public async Task PrefersCapture_OverPlainAdvance()
     {
         var state = new GameStateBuilder(GameRules.Finkel)
-            .WithPiece(Player.One, 5)
-            .WithPiece(Player.One, 9)
-            .WithPiece(Player.Two, 7)
+            .WithPiece(Player.One, 4)
+            .WithPiece(Player.One, 8)
+            .WithPiece(Player.Two, 6)
             .WithCurrentPlayer(Player.One)
             .Build();
 
         var moves = new List<Move>
         {
-            new(Player.One, 0, 5, 7), // capture (piece index 0)
-            new(Player.One, 1, 9, 11), // plain advance (piece index 1)
+            new(Player.One, 0, 4, 6), // capture (piece index 0)
+            new(Player.One, 1, 8, 10), // plain advance (piece index 1)
         };
 
         var chosen = await Ai.ChooseMoveAsync(state, moves, 2);
-        await Assert.That(chosen.To).IsEqualTo(7);
+        await Assert.That(chosen.To).IsEqualTo(6);
     }
 
     #endregion
@@ -127,7 +127,7 @@ public class GreedyAiPlayerTests
         var moves = new List<Move>
         {
             new(Player.One, 0, -1, 2),
-            new(Player.One, 1, 5, 8),  // rosette at 8 (piece index 1)
+            new(Player.One, 1, 5, 8),  // plain advance (piece index 1)
             new(Player.One, 2, 10, 13),
         };
 

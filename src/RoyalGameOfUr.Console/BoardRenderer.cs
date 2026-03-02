@@ -66,9 +66,9 @@ public static class BoardRenderer
         for (int i = 0; i < 4; i++)
             entry[i] = CellContent(state, player, 3 - i, rules);
 
-        string exit = CellContent(state, player, 14, rules) + " " + CellContent(state, player, 13, rules);
+        string exit = CellContent(state, player, 13, rules) + " " + CellContent(state, player, 12, rules);
 
-        string gap = new string(' ', 13);
+        string gap = new string(' ', 9);
         char symbol = PlayerSymbol(player);
         return $"  {symbol}: {string.Join(" ", entry)}{gap}{exit}";
     }
@@ -76,7 +76,7 @@ public static class BoardRenderer
     private static string RenderBellMiddleRow(GameState state, GameRules rules)
     {
         var cells = new List<string>();
-        for (int i = 4; i <= 12; i++)
+        for (int i = 4; i <= 11; i++)
         {
             cells.Add(SharedCellContent(state, i, i, rules));
         }
@@ -207,12 +207,12 @@ public static class BoardRenderer
             r.IsRosette(pos) ? $"[{pos,2}*]" : $"[{pos,2} ]";
 
         string entry = string.Join("", new[] { 3, 2, 1, 0 }.Select(i => Idx(i, rules)));
-        string exit = Idx(14, rules) + Idx(13, rules);
-        int middleWidth = 9 * 5;
+        string exit = Idx(13, rules) + Idx(12, rules);
+        int middleWidth = 8 * 5;
         int gap = middleWidth - entry.Length - exit.Length;
 
         string privateRow = $"     {entry}{new string(' ', gap)}{exit}";
-        string middle = string.Join("", Enumerable.Range(4, 9).Select(i => Idx(i, rules)));
+        string middle = string.Join("", Enumerable.Range(4, 8).Select(i => Idx(i, rules)));
 
         System.Console.WriteLine();
         System.Console.WriteLine($"  1:{privateRow[4..]}");
