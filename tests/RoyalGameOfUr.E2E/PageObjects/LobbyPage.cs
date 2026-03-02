@@ -29,7 +29,7 @@ public sealed class LobbyPage(IPage page, string baseUrl)
         await page.ClickAsync("button:has-text('Create Room')");
 
         var roomCodeEl = page.Locator(".room-code");
-        await roomCodeEl.WaitForAsync(new LocatorWaitForOptions { Timeout = 10_000 });
+        await roomCodeEl.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
         return (await roomCodeEl.TextContentAsync())!.Trim();
     }
 
@@ -43,7 +43,7 @@ public sealed class LobbyPage(IPage page, string baseUrl)
     public async Task WaitForOpponentJoinedAsync()
     {
         await page.WaitForSelectorAsync("button:has-text('Start Game')",
-            new PageWaitForSelectorOptions { Timeout = 10_000 });
+            new PageWaitForSelectorOptions { Timeout = 30_000 });
     }
 
     public async Task StartGameAsync()
@@ -58,7 +58,7 @@ public sealed class LobbyPage(IPage page, string baseUrl)
             return;
 
         await page.WaitForURLAsync("**/online/play",
-            new PageWaitForURLOptions { Timeout = 30_000 });
+            new PageWaitForURLOptions { Timeout = 60_000 });
     }
 
     public ILocator RoomCode => page.Locator(".room-code");

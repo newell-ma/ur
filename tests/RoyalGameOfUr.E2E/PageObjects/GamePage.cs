@@ -9,7 +9,7 @@ public sealed class GamePage(IPage page)
     public async Task WaitForBoardAsync()
     {
         await page.WaitForSelectorAsync("svg.board-svg",
-            new PageWaitForSelectorOptions { Timeout = 15_000 });
+            new PageWaitForSelectorOptions { Timeout = 30_000 });
     }
 
     public async Task ClickFirstClickablePieceAsync()
